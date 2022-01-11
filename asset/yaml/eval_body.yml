@@ -1,0 +1,19 @@
+DATASET:
+    train_list: []    
+    # PW3D  
+    test_list: ['PW3D']               
+    workers: 16
+
+MODEL:
+    type: 'body'
+    # 'resnet50', 'resnet50fpn', 'hrnetw32'
+    backbone: 'hrnetw32'
+    weight_path: 'experiment/exp3_2/checkpoints/best.pth.tar'
+    input_img_shape: [256, 192]
+    predictor_hidden_dim: 256
+    
+TEST:
+    batch_size: 32
+    shuffle: False
+    vis: True
+    vis_freq: 10

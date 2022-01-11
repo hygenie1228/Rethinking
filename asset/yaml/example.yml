@@ -1,0 +1,54 @@
+DATASET:
+    # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
+    train_list: ['Human36M', 'MSCOCO']   
+    train_partition: [0.5, 0.5]             # train_list의 학습 데이터 비율 조절 (1epoch의 데이터 개수는 가장 긴 데이터셋으로 고정됨) 
+    # 'PW3D'  
+    test_list: ['PW3D']   
+    make_same_len: True                     # tarin_partition을 1/n으로 강제함 (데이터 셋 크기 모두 동일하게)
+    workers: 16
+
+MODEL:
+    # 'contrastive', 'body', 'hand', '2d_joint'
+    type: 'body'                            # 학습 종류 선택
+    # 'resnet50', 'hrnetw32'
+    backbone: 'hrnetw32'                    # backbone 종류 선택
+    use_upsampling_layer: False             # backbone의 option값, 한동안 False을 default로 하면 될듯
+    weight_path: 'experiment/pretrained_hrnetw32_mscoco/checkpoints/final.pth.tar'  # load checkpoint
+    input_img_shape: [256, 192]             
+
+TRAIN:
+    # 'posecontrast', 'pose', 'cls'
+    pretrained_model_type: 'posecontrast'   # pretrained type 
+    transfer_backbone: True                 # True: weight_path로부터 backbone transfer를 함
+    freeze_backbone: False                  # True: head만 학습, 즉 backbone freeze
+   
+    batch_size: 48
+    shuffle: True
+    begin_epoch: 1
+    end_epoch: 10
+    optimizer: 'adam'
+    scheduler: 'step'
+    lr: 1.0e-4
+    lr_step: []
+    lr_factor: 0.1
+    print_freq: 10
+    use_pseudo_GT: True                     # NeuralAnnot사용
+    vis: True
+
+    joint_loss_weight: 1.0
+    proj_loss_weight: 0.1
+    pose_loss_weight: 1.0
+    shape_loss_weight: 1.0
+    prior_loss_weight: 0.0
+    
+AUG:
+    scale_factor: 0.25
+    rot_factor: 30
+    color_factor: 0.2
+    flip: True
+
+TEST:
+    batch_size: 32
+    shuffle: False
+    vis: True
+    vis_freq: 100
