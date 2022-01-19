@@ -6,6 +6,21 @@ import numpy as np
 from core.config import cfg
 from core.prior import MaxMixturePrior
 
+class CLSLoss(nn.Module):
+    def __init__(self):
+        super(CLSLoss, self).__init__()
+        self.bce_loss = nn.BCELoss(reduction='none')
+
+    def forward(self, pred, target):
+        pred, target = pred.reshape(-1), target.reshape(-1)
+        valid = (target != 0)
+
+        pred, target = pred[valid], target[valid]
+        target[target!=1] = 0
+
+        loss = self.bce_loss(pred, target.float())
+        return loss.mean()
+
 class CoordLoss(nn.Module):
     def __init__(self, has_valid=False):
         super(CoordLoss, self).__init__()
@@ -191,13 +206,8 @@ class Joint2JointLoss(nn.Module):
         self.criterion = SupConLoss()
 
     def forward(self, output, target):
-        # remove non-joint
-        output = output[:, :-cfg.TRAIN.non_joints_num, ...]
-        target = target[:, :-cfg.TRAIN.non_joints_num]
-        
-        if (target<0).sum() > 0 : assert 0
-        
         batch_size, joint_num, n_view, feat_dim = output.shape
+        if (target<0).sum() > 0 : assert 0
         
         labels = torch.arange(joint_num, device='cuda')
         labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
@@ -213,20 +223,22 @@ class Joint2JointLoss(nn.Module):
         loss = self.criterion(output, labels)
         return loss
     
-    
 class JointContrastiveLoss(nn.Module):
     def __init__(self, temperature=0.5):
         super(JointContrastiveLoss, self).__init__()
         self.temperature = temperature
         self.criterion = SupConLoss()
 
-    def forward(self, output, target):        
-        batch_size, joint_num, n_view, feat_dim = output.shape
+    def forward(self, output, target):     
+        if len(output.shape) == 3:
+            batch_size, joint_num, feat_dim = output.shape
+            n_view = 1
+        else:
+            batch_size, joint_num, n_view, feat_dim = output.shape
         
         labels = torch.arange(joint_num, device='cuda')
         labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
-        labels[:, -cfg.TRAIN.non_joints_num:, ...] = joint_num - cfg.TRAIN.non_joints_num # dummy label : 24
-           
+
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         target = target.reshape(batch_size*joint_num)   
         labels = labels.reshape(batch_size*joint_num)    
@@ -236,14 +248,15 @@ class JointContrastiveLoss(nn.Module):
         output = output[target_valid]
         labels = labels[target_valid]
         
+        output = F.normalize(output, dim=2)
         loss = self.criterion(output, labels)
         return loss
-    
     
 class PriorLoss(nn.Module):
     def __init__(self):
         super(PriorLoss, self).__init__()
         self.pose_prior = MaxMixturePrior(prior_folder='data/base_data/pose_prior', num_gaussians=8, dtype=torch.float32).cuda()
+
         self.pose_prior_weight = 4.78 ** 2
         self.shape_prior_weight = 5 ** 2
         self.angle_prior_weight = 15.2 **2
@@ -268,14 +281,58 @@ class PriorLoss(nn.Module):
         # We subtract 3 because pose does not include the global rotation of the model
         return torch.exp(pose[:, [55-3, 58-3, 12-3, 15-3]] * torch.tensor([1., -1., -1, -1.], device=pose.device)) ** 2
     
+class ContrastiveLoss(nn.Module):
+    def __init__(self, temperature=0.5):
+        super(ContrastiveLoss, self).__init__()
+        self.criterion = nn.CrossEntropyLoss()
+        self.n_views = 2
+        self.temperature = temperature
+
+    def forward(self, output):     
+        logits, labels = self.info_nce_loss(output)
+        loss = self.criterion(logits, labels)
+        return loss
+
+    def info_nce_loss(self, features):
+        batch_size = features.shape[0] //2
+
+        labels = torch.cat([torch.arange(batch_size, device='cuda') for i in range(self.n_views)], dim=0)
+        labels = (labels.unsqueeze(0) == labels.unsqueeze(1)).float()
+
+        features = F.normalize(features, dim=1)
+
+        similarity_matrix = torch.matmul(features, features.T)
+        # assert similarity_matrix.shape == (
+        #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
+        # assert similarity_matrix.shape == labels.shape
+
+        # discard the main diagonal from both: labels and similarities matrix
+        mask = torch.eye(labels.shape[0], dtype=torch.bool, device='cuda')
+        labels = labels[~mask].view(labels.shape[0], -1)
+        similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
+        # assert similarity_matrix.shape == labels.shape
+
+        # select and combine multiple positives
+        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)
+
+        # select only the negatives the negatives
+        negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)
+
+        logits = torch.cat([positives, negatives], dim=1)
+        labels = torch.zeros(logits.shape[0], dtype=torch.long, device='cuda')
+
+        logits = logits / self.temperature
+        return logits, labels
     
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
-        loss['inter_joint'] = Joint2NonJointLoss()
-        loss['intra_joint'] = Joint2JointLoss()
-    elif cfg.MODEL.type == '2d_joint':
+        #loss['inter_joint'] = Joint2NonJointLoss()
+        loss['jointness'] = CLSLoss()
+        loss['joint_contrast'] = Joint2JointLoss()
+    elif cfg.MODEL.type == '2d_contrast':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
+        loss['contrast'] = JointContrastiveLoss()
     elif cfg.MODEL.type == 'body':
         loss['joint_cam'] = CoordLoss(has_valid=True)
         loss['smpl_joint_cam'] = CoordLoss(has_valid=True)

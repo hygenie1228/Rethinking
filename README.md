@@ -1,5 +1,12 @@
 # PoseContrast
 
+## Updates
+### 2022.01.19
+- augmentation: Gaussian Blur추가, Grayscale 넣을지는 고민중 (Augmentation 계속 바꿔가면서 실험해봐야할듯)
+- PARE regressor 수정 (channel수 잘못되어있어서 변경)
+- Requirement.txt 추가
+- Contrastive learning: jointness를 0/1로 supervision 주는 것으로 변경
+
 
 ## Data configuration
 - Human36M등의 각 데이터셋의 심볼릭링크는 각 convention에 맞게 설정하시면 될듯 합니다.  
@@ -13,6 +20,11 @@
 
 [[Link](https://drive.google.com/drive/folders/1gFC5LML7oD48w542rFNpiAzUOtMOM7Nc?usp=sharing)]
 
+
+
+## Requirement
+- torch==1.7.0
+- torchvision==0.8.1
 
 
 ## Experiment setting

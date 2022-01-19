@@ -15,7 +15,7 @@ from core.logger import logger
 from img_utils import load_img, annToMask
 from coord_utils import generate_joint_heatmap, sampling_non_joint, image_bound_check
 from aug_utils import img_processing, coord2D_processing, coord3D_processing, smpl_param_processing, flip_joint, transform_joint_to_other_db
-from human_models import smpl
+from human_models import smpl, coco
 
 from vis_utils import vis_keypoints, vis_keypoints_with_skeleton, vis_3d_pose, vis_heatmaps, save_obj
 
@@ -33,8 +33,8 @@ class BaseDataset(Dataset):
     def __getitem__(self, index):
         if cfg.MODEL.type == 'contrastive':
             return self.get_item_contrastive(index)
-        elif cfg.MODEL.type == '2d_joint':
-            return self.get_item_2d_joint(index)
+        elif cfg.MODEL.type == '2d_contrast':
+            return self.get_item_2d_contrast(index)
         elif cfg.MODEL.type == 'body':
             return self.get_item_body(index)
         elif cfg.MODEL.type == 'hand':
@@ -57,16 +57,17 @@ class BaseDataset(Dataset):
         if do_flip: joint_valid_1 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         else: joint_valid_1 = joint_valid
         
-        hm, joint_valid_1 = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, cfg.MODEL.input_img_shape, sigma=cfg.TRAIN.heatmap_sigma)
+        hm, _ = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, cfg.MODEL.input_img_shape, sigma=cfg.TRAIN.heatmap_sigma)
         non_joint_img_1 = sampling_non_joint(hm, cfg.TRAIN.non_joints_num)
-        non_joint_img_2 = coord2D_processing(non_joint_img_1, bb2img_trans, do_flip, cfg.MODEL.input_img_shape, inv=True)
         
         img_2, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
         joint_img_2 = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
         if do_flip: joint_valid_2 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         else: joint_valid_2 = joint_valid
         
-        non_joint_img_2 = coord2D_processing(non_joint_img_2, img2bb_trans, do_flip, cfg.MODEL.input_img_shape)
+        hm, _ = generate_joint_heatmap(joint_img_2, joint_valid_2, cfg.MODEL.input_img_shape, cfg.MODEL.input_img_shape, sigma=cfg.TRAIN.heatmap_sigma)
+        non_joint_img_2 = sampling_non_joint(hm, cfg.TRAIN.non_joints_num)
+
         joint_valid = joint_valid_1 * joint_valid_2
             
         # debug
@@ -93,14 +94,14 @@ class BaseDataset(Dataset):
         img_2 = self.transform(img_2.astype(np.float32))
         
         # convert joint set
-        joint_img_1 = transform_joint_to_other_db(joint_img_1, self.joint_set['joints_name'], smpl.joints_name)
-        joint_img_2 = transform_joint_to_other_db(joint_img_2, self.joint_set['joints_name'], smpl.joints_name)
-        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], smpl.joints_name)
+        joint_img_1 = transform_joint_to_other_db(joint_img_1, self.joint_set['joints_name'], coco.joints_name)
+        joint_img_2 = transform_joint_to_other_db(joint_img_2, self.joint_set['joints_name'], coco.joints_name)
+        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], coco.joints_name)
         
         # remove joints outside image
-        non_joint_valid = np.ones((cfg.TRAIN.non_joints_num,)) * -1
         joint_valid = image_bound_check(joint_img_1, cfg.MODEL.input_img_shape, joint_valid)
         joint_valid = image_bound_check(joint_img_2, cfg.MODEL.input_img_shape, joint_valid)
+        non_joint_valid = np.ones((cfg.TRAIN.non_joints_num,)) * -1
         non_joint_valid = image_bound_check(non_joint_img_1, cfg.MODEL.input_img_shape, non_joint_valid)
         non_joint_valid = image_bound_check(non_joint_img_2, cfg.MODEL.input_img_shape, non_joint_valid)
         
@@ -120,51 +121,91 @@ class BaseDataset(Dataset):
         
         return batch
     
-    def get_item_2d_joint(self, index):
+    def get_item_2d_contrast(self, index):
         data = copy.deepcopy(self.datalist[index])
         
         img_path = data['img_path']
         img = load_img(img_path)
-
-        bbox = data['bbox']
-        joint_img, joint_valid = data['joint_img'], data['joint_valid']
+        bbox, joint_img, joint_valid = data['bbox'], data['joint_img'], data['joint_valid']
         
-        img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
-        joint_img = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
-        if do_flip: joint_valid = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
-
-        hm, joint_valid = generate_joint_heatmap(joint_img, joint_valid, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape)
-
-        # debug
-        '''
-        tmp_img = img[:,:,::-1]
-        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_img.png'), tmp_img)
-        #hm = np.clip(hm.sum(0)[None,...],0,1)
-        img2 = vis_heatmaps(tmp_img[None,...], hm[None,...])
-        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_hm.png'), img2)
-        img2 = vis_keypoints_with_skeleton(tmp_img, np.concatenate([joint_img,joint_valid[:,None]],1), self.joint_set['skeleton'])
-        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joint_img.png'), img2)
-        '''
-
-        img = self.transform(img.astype(np.float32))
-        joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], smpl.joints_name)
-        hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], smpl.joints_name)
-        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], smpl.joints_name) 
-
         if self.data_split == 'train':
+            img_1, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
+            joint_img_1 = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
+            if do_flip: joint_valid_1 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
+            else: joint_valid_1 = joint_valid
+            
+            img_2, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
+            joint_img_2 = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
+            if do_flip: joint_valid_2 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
+            else: joint_valid_2 = joint_valid
+
+            hm_1, joint_valid_1 = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape)
+            hm_2, joint_valid_2 = generate_joint_heatmap(joint_img_2, joint_valid_2, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape)
+
+            # debug
+            '''
+            img_1 = img_1[:,:,::-1]
+            tmp_img = vis_heatmaps(img_1[None,...], hm_1[None,...])
+            cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_hm_1.png'), tmp_img)
+            tmp_img = vis_keypoints_with_skeleton(img_1, np.concatenate([joint_img_1,joint_valid[:,None]],1), self.joint_set['skeleton'])
+            cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joints_1.png'), tmp_img)
+            
+            img_2 = img_2[:,:,::-1]
+            tmp_img = vis_heatmaps(img_2[None,...], hm_2[None,...])
+            cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_hm_2.png'), tmp_img)
+            tmp_img = vis_keypoints_with_skeleton(img_2, np.concatenate([joint_img_2,joint_valid[:,None]],1), self.joint_set['skeleton'])
+            cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joints_2.png'), tmp_img)   
+            '''    
+            
+            img_1 = self.transform(img_1.astype(np.float32))
+            img_2 = self.transform(img_2.astype(np.float32))
+
+            joint_img_1[:,0] *= cfg.MODEL.img_feat_shape[1] / cfg.MODEL.input_img_shape[1] 
+            joint_img_1[:,1] *= cfg.MODEL.img_feat_shape[0] / cfg.MODEL.input_img_shape[0]
+            joint_img_2[:,0] *= cfg.MODEL.img_feat_shape[1] / cfg.MODEL.input_img_shape[1] 
+            joint_img_2[:,1] *= cfg.MODEL.img_feat_shape[0] / cfg.MODEL.input_img_shape[0]
+            
+            # remove joints outside image
+            joint_valid_1 = image_bound_check(joint_img_1, cfg.MODEL.img_feat_shape, joint_valid)
+            joint_valid_2 = image_bound_check(joint_img_2, cfg.MODEL.img_feat_shape, joint_valid)
+
+            joint_img_1 = transform_joint_to_other_db(joint_img_1, self.joint_set['joints_name'], coco.joints_name)
+            joint_img_2 = transform_joint_to_other_db(joint_img_2, self.joint_set['joints_name'], coco.joints_name)
+            hm_1 = transform_joint_to_other_db(hm_1, self.joint_set['joints_name'], coco.joints_name)
+            hm_2 = transform_joint_to_other_db(hm_2, self.joint_set['joints_name'], coco.joints_name)
+            joint_valid_1 = transform_joint_to_other_db(joint_valid_1, self.joint_set['joints_name'], coco.joints_name) 
+            joint_valid_2 = transform_joint_to_other_db(joint_valid_2, self.joint_set['joints_name'], coco.joints_name) 
+
+            batch = {
+                'img': [img_1, img_2],
+                'hm': [hm_1, hm_2],
+                'joint_img': [joint_img_1, joint_img_2],
+                'joint_valid': [joint_valid_1, joint_valid_2]
+            }
+        else:
+            img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
+            joint_img = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
+            if do_flip: joint_valid = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
+
+            hm, _ = generate_joint_heatmap(joint_img, joint_valid, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape)
+
+            img = self.transform(img.astype(np.float32))
+            joint_img[:,0] *= cfg.MODEL.img_feat_shape[1] / cfg.MODEL.input_img_shape[1] 
+            joint_img[:,1] *= cfg.MODEL.img_feat_shape[0] / cfg.MODEL.input_img_shape[0]
+
+            joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], coco.joints_name)
+            hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], coco.joints_name)
+            joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], coco.joints_name) 
+            
             batch = {
                 'img': img,
                 'hm': hm,
-                'hm_valid': joint_valid
-            }
-        else:
-            batch = {
-                'img': img,
                 'joint_img': joint_img,
                 'joint_valid': joint_valid
             }
-        
+
         return batch
+
 
     def get_item_body(self, index):
         data = copy.deepcopy(self.datalist[index])

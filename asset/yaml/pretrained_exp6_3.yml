@@ -18,9 +18,9 @@ MODEL:
 
 TRAIN:      
     # 'pose', 'cls'
-    pretrained_model_type: 'cls'
+    pretrained_model_type: 'pose'
     transfer_backbone: True
-    batch_size: 128
+    batch_size: 64
     shuffle: True
     begin_epoch: 1
     end_epoch: 50
@@ -30,16 +30,12 @@ TRAIN:
     lr_step: [30, 40]
     lr_factor: 0.1
     print_freq: 10
-    non_joints_num: 19
+    non_joints_num: 24
     heatmap_sigma: 10
     vis: True
-
-    jointness_loss_weight: 1.0
-    joint_contrast_loss_weight: 1.0
 
 AUG:
     scale_factor: 0.25
     rot_factor: 30
     color_factor: 0.2
-    blur_factor: 2.0
     flip: True

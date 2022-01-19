@@ -1,6 +1,6 @@
 DATASET:
     # 'MSCOCO'
-    train_list: ['MSCOCO']    
+    train_list: ['MSCOCO']
     # PW3D  
     test_list: []
     train_partition: [1.0]
@@ -23,11 +23,11 @@ TRAIN:
     batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 50
+    end_epoch: 140
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.001
-    lr_step: [30, 40]
+    lr_step: [80, 120]
     lr_factor: 0.1
     print_freq: 10
     non_joints_num: 19

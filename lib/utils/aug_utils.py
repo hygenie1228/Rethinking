@@ -29,13 +29,14 @@ def get_aug_config():
     c_up = 1.0 + cfg.AUG.color_factor
     c_low = 1.0 - cfg.AUG.color_factor
     color_scale = np.array([random.uniform(c_low, c_up), random.uniform(c_low, c_up), random.uniform(c_low, c_up)])
+    blur_sigma = random.uniform(0.1, cfg.AUG.blur_factor)
     
     if cfg.AUG.flip:
         do_flip = random.random() <= 0.5
     else:
         do_flip = False
         
-    return scale, rot, color_scale, do_flip
+    return scale, rot, color_scale, blur_sigma, do_flip
 
 def generate_patch_image(cvimg, bbox, scale, rot, do_flip, out_shape):
     img = cvimg.copy()
@@ -93,13 +94,14 @@ def gen_trans_from_patch_cv(c_x, c_y, src_width, src_height, dst_width, dst_heig
 
 def img_processing(img, bbox, data_split):
     if data_split == 'train':
-        scale, rot, color_scale, do_flip = get_aug_config()
+        scale, rot, color_scale, blur_sigma, do_flip = get_aug_config()
     else:
-        scale, rot, color_scale, do_flip = 1.0, 0.0, np.array([1,1,1]), False
+        scale, rot, color_scale, blur_sigma, do_flip = 1.0, 0.0, np.array([1,1,1]), 0, False
     
     img, trans, inv_trans = generate_patch_image(img, bbox, scale, rot, do_flip, cfg.MODEL.input_img_shape)
-    img = np.clip(img * color_scale[None,None,:], 0, 255)
-    
+    img = img * color_scale[None,None,:]
+    if blur_sigma > 0 : img = cv2.GaussianBlur(img, (0, 0), blur_sigma)
+    img = np.clip(img, 0, 255)
     return img, trans, inv_trans, rot, do_flip
 
 def flip_joint(kp, width, flip_pairs):

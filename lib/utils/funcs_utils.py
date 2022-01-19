@@ -16,12 +16,12 @@ import torchgeometry as tgm
 from core.config import cfg
 
 
-def sample_image_feature(img_feat, xy, width, height):
+def sample_image_feature(img_feat, xy):
+    height, width = img_feat.shape[2:]
     x = xy[:,0] / width * 2 - 1
     y = xy[:,1] / height * 2 - 1
-    grid = torch.stack((x,y),1)[None,:,None,:]
-    img_feat = F.grid_sample(img_feat, grid, align_corners=True)[0,:,:,0] # (channel_dim, sampling points)
-    img_feat = img_feat.permute(1,0)
+    grid = torch.stack((x,y),1)[:,None,None,:]
+    img_feat = F.grid_sample(img_feat, grid, align_corners=True)[:,:,0,0] # (batch_size, channel_dim)
     return img_feat
 
 
