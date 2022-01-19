@@ -5,7 +5,7 @@ import numpy as np
 import __init_path
 import shutil
 
-from funcs_utils import save_checkpoint, check_data_parallel
+from utils.funcs_utils import save_checkpoint, check_data_parallel
 from core.config import cfg, update_config
 from core.logger import logger
 

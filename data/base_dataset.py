@@ -12,12 +12,12 @@ from torch.utils.data import Dataset
 
 from core.config import cfg
 from core.logger import logger
-from img_utils import load_img, annToMask
-from coord_utils import generate_joint_heatmap, sampling_non_joint, image_bound_check
-from aug_utils import img_processing, coord2D_processing, coord3D_processing, smpl_param_processing, flip_joint, transform_joint_to_other_db
-from human_models import smpl
+from utils.img_utils import load_img, annToMask
+from utils.coord_utils import generate_joint_heatmap, sampling_non_joint, image_bound_check
+from utils.aug_utils import img_processing, coord2D_processing, coord3D_processing, smpl_param_processing, flip_joint, transform_joint_to_other_db
+from utils.human_models import smpl
 
-from vis_utils import vis_keypoints, vis_keypoints_with_skeleton, vis_3d_pose, vis_heatmaps, save_obj
+from utils.vis_utils import vis_keypoints, vis_keypoints_with_skeleton, vis_3d_pose, vis_heatmaps, save_obj
 
 
 class BaseDataset(Dataset):

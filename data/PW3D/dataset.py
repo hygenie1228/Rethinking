@@ -9,7 +9,7 @@ import json
 from pycocotools.coco import COCO
 
 from core.config import cfg
-from coord_utils import world2cam, cam2pixel, process_bbox
+from utils.coord_utils import world2cam, cam2pixel, process_bbox
 from base_dataset import BaseDataset
 
 class PW3D(BaseDataset):

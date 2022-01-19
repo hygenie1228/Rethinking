@@ -5,7 +5,7 @@ from torch.nn import functional as F
 #from models import ResNetBackbone
 from models import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d
 
-from human_models import smpl
+from utils.human_models import smpl
 
 class ResNetFPN(nn.Module):
     def __init__(self, resnet_type, n_feats):

@@ -7,7 +7,7 @@ import os
 import math
 from core.config import cfg
 
-from coord_utils import get_max_preds
+from utils.coord_utils import get_max_preds
 
 def vis_keypoints(img, kps, alpha=1):
     # Convert from plt 0-1 RGBA colors to 0-255 BGR colors for opencv.

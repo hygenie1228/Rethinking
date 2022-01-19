@@ -15,11 +15,11 @@ import MSCOCO.dataset, MPII.dataset, PW3D.dataset, Human36M.dataset, MPI_INF_3DH
 from models import get_model, transfer_backbone
 from multiple_datasets import MultipleDatasets
 from core.loss import get_loss
-from coord_utils import heatmap_to_coords
-from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
-from eval_utils import eval_mpjpe, eval_pa_mpjpe, eval_2d_joint_accuracy
-from vis_utils import save_plot
-from human_models import smpl
+from utils.coord_utils import heatmap_to_coords
+from utils.funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
+from utils.eval_utils import eval_mpjpe, eval_pa_mpjpe, eval_2d_joint_accuracy
+from utils.vis_utils import save_plot
+from utils.human_models import smpl
 
 
 def get_dataloader(dataset_names, is_train):
@@ -193,7 +193,7 @@ class Trainer:
             # visualize
             if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
                 import cv2
-                from vis_utils import vis_keypoints_with_skeleton, vis_keypoints
+                from utils.vis_utils import vis_keypoints_with_skeleton, vis_keypoints
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                 img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
@@ -261,7 +261,7 @@ class Trainer:
             # visualize 
             if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
                 import cv2
-                from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
+                from utils.vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                 img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
@@ -345,7 +345,7 @@ class Trainer:
             # visualize 
             if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
                 import cv2
-                from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
+                from utils.vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                 img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
@@ -463,7 +463,7 @@ class Tester:
                 
                 if cfg.TEST.vis:
                     import cv2
-                    from vis_utils import vis_keypoints_with_skeleton
+                    from utils.vis_utils import vis_keypoints_with_skeleton
                     
                     if i % self.vis_freq == 0:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
@@ -524,7 +524,7 @@ class Tester:
                     
                 if cfg.TEST.vis:
                     import cv2
-                    from vis_utils import vis_3d_pose, save_obj
+                    from utils.vis_utils import vis_3d_pose, save_obj
                     
                     if i % self.vis_freq == 0:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])

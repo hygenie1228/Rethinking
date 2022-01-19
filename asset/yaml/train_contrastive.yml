@@ -17,11 +17,12 @@ MODEL:
     projector_out_dim: 1024
 
 TRAIN:      
-    from_scratch: True
-    batch_size: 64
+#    from_scratch: True
+    pretrained_model_type: 'pose'
+    batch_size: 16
     shuffle: True
     begin_epoch: 1
-    end_epoch: 30
+    end_epoch: 40
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.01

@@ -8,8 +8,8 @@ from models import PoseResNet, ResNetFPN, PoseHighResolutionNet, Projector, Pred
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
-from funcs_utils import sample_image_feature, rot6d_to_axis_angle
-from human_models import smpl
+from utils.funcs_utils import sample_image_feature, rot6d_to_axis_angle
+from utils.human_models import smpl
 
 class Model(nn.Module):
     def __init__(self, backbone, head):
@@ -41,7 +41,8 @@ class Model(nn.Module):
     def forward_contrastive(self, inp_img, joints=None, joints_valid=None):
         batch_size = inp_img.shape[0]
         img_feat = self.backbone(inp_img)
-        
+
+        import pdb; pdb.set_trace()
         joint_feat = self.sampling_joint_feature(img_feat, joints, joints_valid)
         joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 

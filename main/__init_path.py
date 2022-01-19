@@ -16,9 +16,6 @@ this_dir = osp.dirname(__file__)
 lib_path = osp.join(this_dir, '..', 'lib')
 add_path(lib_path)
 
-util_path = osp.join(this_dir, '..', 'lib', 'utils')
-add_path(util_path)
-
 smpl_path = osp.join(this_dir, '..', 'lib', 'smplpytorch')
 add_path(smpl_path)
 

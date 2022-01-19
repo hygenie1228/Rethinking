@@ -3,11 +3,11 @@ import cv2
 import torch
 import random
 
-from coord_utils import get_center_scale
+from utils.coord_utils import get_center_scale
 from core.config import cfg
 
-from coord_utils import cam2pixel
-from human_models import smpl
+from utils.coord_utils import cam2pixel
+from utils.human_models import smpl
 
 def transform_joint_to_other_db(src_joint, src_name, dst_name):
     src_joint_num = len(src_name)

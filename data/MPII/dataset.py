@@ -10,7 +10,7 @@ from pycocotools.coco import COCO
 
 from core.config import cfg
 from core.logger import logger
-from coord_utils import process_bbox
+from utils.coord_utils import process_bbox
 from base_dataset import BaseDataset
 
 class MPII(BaseDataset):
