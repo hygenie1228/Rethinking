@@ -272,8 +272,8 @@ class PriorLoss(nn.Module):
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
-        loss['inter_joint'] = Joint2NonJointLoss()
-        loss['intra_joint'] = Joint2JointLoss()
+        loss['inter_joint'] = Joint2NonJointLoss(0.1)
+        loss['intra_joint'] = Joint2JointLoss(0.1)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
     elif cfg.MODEL.type == 'body':

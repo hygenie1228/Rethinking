@@ -19,19 +19,19 @@ MODEL:
 TRAIN:      
 #    from_scratch: True
     pretrained_model_type: 'pose'
-    batch_size: 16
+    batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 40
+    end_epoch: 140
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.01
-    lr_step: [10, 20]
+    lr_step: [80, 120]
     lr_factor: 0.1
     print_freq: 10
     non_joints_num: 24
     heatmap_sigma: 10
-    vis: True
+    vis: False
 
 AUG:
     scale_factor: 0.25

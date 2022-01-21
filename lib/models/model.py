@@ -42,7 +42,6 @@ class Model(nn.Module):
         batch_size = inp_img.shape[0]
         img_feat = self.backbone(inp_img)
 
-        import pdb; pdb.set_trace()
         joint_feat = self.sampling_joint_feature(img_feat, joints, joints_valid)
         joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 
@@ -77,19 +76,20 @@ class Model(nn.Module):
         pass
     
     
-    def sampling_joint_feature(self, output, joints, joints_valid):
-        batch_size = joints_valid.shape[0]
-        joint_feat = torch.zeros((batch_size, joints_valid.shape[1], output.shape[1]), device='cuda')
-        
-        for i in range(batch_size):
-            feature = output[i, None]
-            points = joints[i]
-            points_valid = (joints_valid[i] != 0)
+    def sampling_joint_feature(self, img_feat, joints, joints_valid):
+        batch_size, joint_num = joints.shape[:2]
 
-            points = points[points_valid]
-            joint_feat[i, points_valid] = sample_image_feature(feature, points, cfg.MODEL.img_feat_shape[1]-1, cfg.MODEL.img_feat_shape[0]-1)
-            
-        return joint_feat
+        img_feat_joints = []
+        for j in range(joint_num):
+            x = joints[:, j, 0] / (cfg.MODEL.img_feat_shape[1]-1) * 2 - 1
+            y = joints[:, j, 1] / (cfg.MODEL.img_feat_shape[0]-1) * 2 - 1
+            grid = torch.stack((x, y), 1)[:, None, None, :]
+            img_feat_j = F.grid_sample(img_feat, grid, align_corners=True)[:, :, 0, 0]  # (batch_size, channel_dim)
+            img_feat_joints.append(img_feat_j)
+
+        img_feat_joints = torch.stack(img_feat_joints)  # (joint_num, batch_size, channel_dim)
+        img_feat_joints = img_feat_joints.permute(1, 0, 2)  # (batch_size, joint_num, channel_dim)
+        return img_feat_joints
     
     def get_camera_trans(self, cam_param):
         # camera translation
