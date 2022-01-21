@@ -13,7 +13,7 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/exp_01-20_20:01/checkpoints/epoch_120.pth.tar'
+    weight_path: 'experiment/exp_01-20_19:48/checkpoints/epoch_120.pth.tar'
     input_img_shape: [256, 192]
     predictor_hidden_dim: 256
 
