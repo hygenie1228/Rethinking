@@ -24,51 +24,52 @@ class Model(nn.Module):
         else:
             self.trainable_modules = [self.backbone, self.head]
 
-    def forward(self, batch):
-        if cfg.MODEL.type == 'contrastive':
-            inp_img_1, inp_img_2 = batch['img'][0].cuda(), batch['img'][1].cuda()
-            joint_img_1, joint_img_2 = batch['joint_img'][0].cuda(), batch['joint_img'][1].cuda()
-            joint_valid_1, joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
+    def forward(self, batch, mode='train'):
+        if cfg.TRAIN.two_view  and mode == 'train':
+            for k in batch.keys():
+                batch[k] = torch.cat(batch[k])
 
-            inp_img = torch.cat([inp_img_1, inp_img_2])
-            joint_img = torch.cat([joint_img_1, joint_img_2])
-            joint_valid = torch.cat([joint_valid_1, joint_valid_2])
+        if cfg.MODEL.type == 'contrastive':
+            inp_img, joint_img, joint_valid = batch['img'], batch['joint_img'], batch['joint_valid']
 
             features = self.forward_contrastive(inp_img, joint_img, joint_valid)
 
-            batch_size = inp_img_1.shape[0]
-            features = torch.stack([features[:batch_size], features[batch_size:]])
+            half_batch_size = len(features) // 2
+            features = torch.stack([features[:half_batch_size], features[half_batch_size:]])
             features = features.permute(1, 2, 0, 3)
-            joint_valid = joint_valid_1
+            joint_valid = joint_valid[:half_batch_size] * joint_valid[half_batch_size:]
 
-            # features: [bs, joint_num+non_joint_num, n_views, feat_dim]
-            # joint_valid: [bs, joint_num+non_joint_num]
+            # features: [hbs, joint_num+non_joint_num, n_views, feat_dim]
+            # joint_valid: [hbs, joint_num+non_joint_num]
 
-            loss = {}
-            loss['inter_joint'] = cfg.TRAIN.inter_joint_loss_weight * self.loss['inter_joint'](features, joint_valid)
-            loss['intra_joint'] = cfg.TRAIN.intra_joint_loss_weight * self.loss['intra_joint'](features, joint_valid)
+            return features, joint_valid
 
         elif cfg.MODEL.type == 'body':
             inp_img = batch['img'].cuda()
-            tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
-            tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
-            meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
-
             pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape = self.forward_body(inp_img)
 
-            loss = {}
-            loss['joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
-            loss['smpl_joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:, :, None])
-            loss['joint_proj'] = cfg.TRAIN.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
-            loss['pose_param'] = cfg.TRAIN.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
-            loss['shape_param'] = cfg.TRAIN.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
-            loss['prior'] = cfg.TRAIN.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:, 3:], pred_smpl_shape)
+            if mode == 'train':
+                tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
+                tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
+                meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
+
+                loss = {}
+                loss['joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
+                loss['smpl_joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:, :, None])
+                loss['joint_proj'] = cfg.TRAIN.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
+                loss['pose_param'] = cfg.TRAIN.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
+                loss['shape_param'] = cfg.TRAIN.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
+                loss['prior'] = cfg.TRAIN.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:, 3:], pred_smpl_shape)
+
+                return loss
+
+            else:
+                return pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape
 
         else:
             logger.info('Invalid Model Type!')
             assert 0
 
-        return loss
 
     def forward_contrastive(self, inp_img, joints=None, joints_valid=None):
         batch_size = inp_img.shape[0]
@@ -201,8 +202,9 @@ def get_model(is_train, loss):
     if is_train:
         if cfg.TRAIN.pretrained_model_type is 'posecontrast' or cfg.TRAIN.transfer_backbone:
             backbone.init_weights('')
-        else: 
-            logger.info(f'==> Pretrained type: {cfg.TRAIN.pretrained_model_type.upper()}')
+        else:
+            message = f'==> Pretrained type: {cfg.TRAIN.pretrained_model_type.upper()}'
+            logger.info(message)
             backbone.init_weights(cfg.TRAIN.pretrained_model_type)
             
         head.apply(init_weights)

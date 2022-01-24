@@ -22,16 +22,17 @@ TRAIN:
     batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 140
+    end_epoch: 30
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.01
-    lr_step: [80, 120]
+    lr_step: [15]
     lr_factor: 0.1
     print_freq: 10
     non_joints_num: 24
     heatmap_sigma: 10
     vis: False
+    two_view: True
 
 AUG:
     scale_factor: 0.25
