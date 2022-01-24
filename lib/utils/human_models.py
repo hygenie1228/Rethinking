@@ -15,11 +15,13 @@ class SMPL(object):
         self.joint_regressor = self.layer['neutral'].J_regressor.numpy().astype(np.float32)
         self.shape_param_dim = 10
 
-        self.joint_num = 24 
+        self.joint_num = 24
         self.joints_name = (
-        'Pelvis', 'L_Hip', 'R_Hip', 'Torso', 'L_Knee', 'R_Knee', 'Spine', 'L_Ankle', 'R_Ankle', 'Chest', 
-        'L_Toe', 'R_Toe', 'Neck', 'L_Thorax', 'R_Thorax', 'Head', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow', 
-        'L_Wrist', 'R_Wrist', 'L_Hand', 'R_Hand')
+            'Pelvis', 'L_Hip', 'R_Hip', 'Torso', 'L_Knee', 'R_Knee', 'Spine', 'L_Ankle', 'R_Ankle', 'Chest', 'L_Toe', 'R_Toe', 'Neck', 'L_Thorax', 'R_Thorax', 'Head', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow',
+            'L_Wrist', 'R_Wrist', 'L_Hand', 'R_Hand')
+        # 'Pelvis'1, 'L_Hip'2, 'R_Hip'1, 'Torso'1, 'L_Knee'2, 'R_Knee'3, 'Spine'1, 'L_Ankle'2, 'R_Ankle'3, 'Chest'1,
+        # 'L_Toe'2, 'R_Toe'3, 'Neck'4, 'L_Thorax'5, 'R_Thorax'6, 'Head'4, 'L_Shoulder'5, 'R_Shoulder'6, 'L_Elbow'5, 'R_Elbow'6,
+        # 'L_Wrist'5, 'R_Wrist'6, 'L_Hand'5, 'R_Hand'6)
         self.part_segments_color = ('silver', 'blue', 'green', 'salmon', 'turquoise', 'olive', 'lavender', 'darkblue', 'lime', 'khaki', 'cyan', 'darkgreen',
                                     'beige', 'coral', 'crimson', 'red', 'aqua', 'chartreuse', 'indigo', 'teal', 'violet', 'orchid', 'orange', 'gold')
         self.flip_pairs = ((1, 2), (4, 5), (7, 8), (10, 11), (13, 14), (16, 17), (18, 19), (20, 21), (22, 23))
@@ -27,7 +29,7 @@ class SMPL(object):
         (0, 1), (1, 4), (4, 7), (7, 10), (0, 2), (2, 5), (5, 8), (8, 11), (0, 3), (3, 6), (6, 9), (9, 14), (14, 17),
         (17, 19), (19, 21), (21, 23), (9, 13), (13, 16), (16, 18), (18, 20), (20, 22), (9, 12), (12, 15))
         self.root_joint_idx = self.joints_name.index('Pelvis')
-        
+        self.parts_idx = [1,2,1,1,2,3,1,2,3,1,2,3,4,5,6,4,5,6,5,6,5,6,5,6]
         
         self.h36m_joint_regressor = np.load(osp.join('data', 'base_data', 'J_regressor_h36m_smpl.npy'))
         self.h36m_root_joint_idx = 0

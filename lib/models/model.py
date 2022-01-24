@@ -12,31 +12,63 @@ from utils.funcs_utils import sample_image_feature, rot6d_to_axis_angle
 from utils.human_models import smpl
 
 class Model(nn.Module):
-    def __init__(self, backbone, head):
+    def __init__(self, backbone, head, loss):
         super(Model, self).__init__()
         self.backbone = backbone
         self.head = head
         self.smpl_layer = copy.deepcopy(smpl.layer['neutral']).cuda()
-        
+        self.loss = nn.ModuleDict(loss)
+
         if cfg.TRAIN.freeze_backbone:
             self.trainable_modules = [self.head]
         else:
             self.trainable_modules = [self.backbone, self.head]
-        
 
-    def forward(self, inp_img, joints=None, joints_valid=None):
+    def forward(self, batch):
         if cfg.MODEL.type == 'contrastive':
-            return self.forward_contrastive(inp_img, joints, joints_valid)
-        elif cfg.MODEL.type == '2d_joint':
-            return self.forward_2d_joint(inp_img)
+            inp_img_1, inp_img_2 = batch['img'][0].cuda(), batch['img'][1].cuda()
+            joint_img_1, joint_img_2 = batch['joint_img'][0].cuda(), batch['joint_img'][1].cuda()
+            joint_valid_1, joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
+
+            inp_img = torch.cat([inp_img_1, inp_img_2])
+            joint_img = torch.cat([joint_img_1, joint_img_2])
+            joint_valid = torch.cat([joint_valid_1, joint_valid_2])
+
+            features = self.forward_contrastive(inp_img, joint_img, joint_valid)
+
+            batch_size = inp_img_1.shape[0]
+            features = torch.stack([features[:batch_size], features[batch_size:]])
+            features = features.permute(1, 2, 0, 3)
+            joint_valid = joint_valid_1
+
+            # features: [bs, joint_num+non_joint_num, n_views, feat_dim]
+            # joint_valid: [bs, joint_num+non_joint_num]
+
+            loss = {}
+            loss['inter_joint'] = cfg.TRAIN.inter_joint_loss_weight * self.loss['inter_joint'](features, joint_valid)
+            loss['intra_joint'] = cfg.TRAIN.intra_joint_loss_weight * self.loss['intra_joint'](features, joint_valid)
+
         elif cfg.MODEL.type == 'body':
-            return self.forward_body(inp_img)
-        elif cfg.MODEL.type == 'hand':
-            return self.forward_hand(inp_img)
+            inp_img = batch['img'].cuda()
+            tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
+            tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
+            meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
+
+            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape = self.forward_body(inp_img)
+
+            loss = {}
+            loss['joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
+            loss['smpl_joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:, :, None])
+            loss['joint_proj'] = cfg.TRAIN.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
+            loss['pose_param'] = cfg.TRAIN.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
+            loss['shape_param'] = cfg.TRAIN.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
+            loss['prior'] = cfg.TRAIN.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:, 3:], pred_smpl_shape)
+
         else:
             logger.info('Invalid Model Type!')
             assert 0
 
+        return loss
 
     def forward_contrastive(self, inp_img, joints=None, joints_valid=None):
         batch_size = inp_img.shape[0]
@@ -139,7 +171,7 @@ def init_weights(m):
         pass
 
 
-def get_model(is_train):
+def get_model(is_train, loss):
     if cfg.MODEL.backbone == 'resnet50':
         backbone = PoseResNet(50, do_upsampling=cfg.MODEL.use_upsampling_layer)
         if cfg.MODEL.use_upsampling_layer: 
@@ -175,7 +207,7 @@ def get_model(is_train):
             
         head.apply(init_weights)
             
-    model = Model(backbone, head)
+    model = Model(backbone, head, loss)
     return model
 
 

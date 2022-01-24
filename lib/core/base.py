@@ -57,10 +57,12 @@ def get_dataloader(dataset_names, is_train):
         return dataset_list, batch_generator
 
 
-def prepare_network(args, load_dir='', is_train=True):    
+def prepare_network(args, load_dir='', is_train=True):
     model, checkpoint = None, None
-    
-    model = get_model(is_train)
+
+    criterion = get_loss()
+    model = get_model(is_train, criterion)
+
     logger.info(f"==> Constructing Model...")
     logger.info(f"# of model parameters: {count_parameters(model)}")
     logger.info(model)
@@ -90,7 +92,6 @@ def train_setup(model, checkpoint):
         loss_history = {'total_loss': [], 'joint_loss': [], 'smpl_joint_loss': [], 'proj_loss': [], 'pose_param_loss': [], 'shape_param_loss': [], 'prior_loss': []}
         error_history = {'mpjpe': [], 'pa_mpjpe': [], 'mpvpe': []}
     
-    criterion = get_loss()
     optimizer = get_optimizer(model=model)
     lr_scheduler = get_scheduler(optimizer=optimizer)
     
@@ -115,15 +116,15 @@ def train_setup(model, checkpoint):
         logger.info("===> resume from epoch {:d}, current lr: {:.0e}, milestones: {}, lr factor: {:.0e}"
                     .format(cfg.TRAIN.begin_epoch, curr_lr, lr_state['milestones'], lr_state['gamma']))
 
-    return criterion, optimizer, lr_scheduler, loss_history, error_history
+    return optimizer, lr_scheduler, loss_history, error_history
     
 
 class Trainer:
     def __init__(self, args, load_dir):
         self.model, checkpoint = prepare_network(args, load_dir, True)
-        self.loss, self.optimizer, self.lr_scheduler, self.loss_history, self.error_history = train_setup(self.model, checkpoint)
+        self.optimizer, self.lr_scheduler, self.loss_history, self.error_history = train_setup(self.model, checkpoint)
         dataset_list, self.batch_generator = get_dataloader(cfg.DATASET.train_list, is_train=True)
-        
+
         self.model = self.model.cuda()
         self.model = nn.DataParallel(self.model) 
         self.print_freq = cfg.TRAIN.print_freq
@@ -146,7 +147,6 @@ class Trainer:
 
     def train_contrastive(self, epoch):
         self.model.train()
-        lr = self.lr_scheduler.get_last_lr()[0]
 
         running_loss = 0.0
         running_inter_joint_loss = 0.0
@@ -154,71 +154,24 @@ class Trainer:
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
-            inp_img_1, inp_img_2 = batch['img'][0].cuda(), batch['img'][1].cuda()
-            joint_img_1, joint_img_2 = batch['joint_img'][0].cuda(), batch['joint_img'][1].cuda()
-            joint_valid_1, joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
-            
-            inp_img = torch.cat([inp_img_1, inp_img_2])
-            joint_img = torch.cat([joint_img_1, joint_img_2])
-            joint_valid = torch.cat([joint_valid_1, joint_valid_2])
-            
-            features = self.model(inp_img, joint_img, joint_valid)
-            
-            batch_size = inp_img_1.shape[0]
-            features = torch.stack([features[:batch_size],features[batch_size:]])
-            features = features.permute(1,2,0,3)
-            joint_valid = joint_valid_1
-            
-            # features: [bs, joint_num+non_joint_num, n_views, feat_dim]
-            # joint_valid: [bs, joint_num+non_joint_num]
-            loss1 = self.inter_joint_loss_weight*self.loss['inter_joint'](features, joint_valid)
-            loss2 = self.intra_joint_loss_weight*self.loss['intra_joint'](features, joint_valid)
-            loss = loss1 + loss2
+            loss = self.model(batch)
+            loss = {k: loss[k].mean() for k in loss}
+            tot_loss = sum(loss[k] for k in loss)
             
             # update weights
             self.optimizer.zero_grad()
-            loss.backward()
+            tot_loss.backward()
             self.optimizer.step()
 
             # log
-            loss, loss1, loss2= loss.detach(), loss1.detach(), loss2.detach()
-            running_loss += float(loss.item())
-            running_inter_joint_loss += float(loss1.item())
-            running_intra_joint_loss += float(loss2.item())
+            running_loss += float(tot_loss.detach().item())
+            running_inter_joint_loss += float(loss['inter_joint'].detach().item())
+            running_intra_joint_loss += float(loss['intra_joint'].detach().item())
 
             if i % self.print_freq == 0:
-                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr} => '
-                                                f'inter loss: {loss1:.4f} intra loss: {loss2:.4f} ')
-            
-            # visualize
-            if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
-                import cv2
-                from utils.vis_utils import vis_keypoints_with_skeleton, vis_keypoints
-                inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
-                tar_joint_img, tar_joint_valid = joint_img_1.cpu().numpy(), joint_valid_1.cpu().numpy()
-
-                tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_1.png'), tmp_img)
-                
-                tmp_img = vis_keypoints(img, tar_joint_img[0][tar_joint_valid[0] == -1])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_non_joint_1.png'), tmp_img)
-                
-                img = inv_normalize(inp_img_2[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
-                tar_joint_img, tar_joint_valid = joint_img_2.cpu().numpy(), joint_valid_2.cpu().numpy()
-                
-                tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_2.png'), tmp_img)
-                
-                tmp_img = vis_keypoints(img, tar_joint_img[0][tar_joint_valid[0] == -1])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_non_joint_2.png'), tmp_img)
-                    
+                loss['tot_loss'] = tot_loss
+                loss_message = ' '.join(['%s: %.4f' % (k, v.detach()) for k, v in loss.items()])
+                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}) => {loss_message}')
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator))
         self.loss_history['inter_joint_loss'].append(running_inter_joint_loss / len(batch_generator))
@@ -296,7 +249,6 @@ class Trainer:
         
     def train_body(self, epoch):
         self.model.train()
-        lr = self.lr_scheduler.get_last_lr()[0]
 
         running_loss = 0.0
         running_joint_loss = 0.0
@@ -308,79 +260,28 @@ class Trainer:
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
-            inp_img = batch['img'].cuda()
-            tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
-            tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
-            meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
-            
-            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape = self.model(inp_img)
+            loss = self.model(batch)
+            loss = {k: loss[k].mean() for k in loss}
+            tot_loss = sum(loss[k] for k in loss)
 
-            loss1 = self.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
-            loss2 = self.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:,:,None])
-            loss3 = self.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
-            loss4 = self.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
-            loss5 = self.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
-            loss6 = self.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:,3:], pred_smpl_shape)
-            loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
-            
             # update weights
             self.optimizer.zero_grad()
-            loss.backward()
+            tot_loss.backward()
             self.optimizer.step()
 
             # log
-            loss, loss1, loss2, loss3, loss4, loss5, loss6 = loss.detach(), loss1.detach(), loss2.detach(), loss3.detach(), loss4.detach(), loss5.detach(), loss6.detach()
-            running_loss += float(loss.item())
-            running_joint_loss += float(loss1.item())
-            running_smpl_joint_loss += float(loss2.item())
-            running_proj_loss += float(loss3.item())
-            running_pose_param_loss += float(loss4.item())
-            running_shape_param_loss += float(loss5.item())
-            running_prior_loss += float(loss6.item())
+            running_loss += float(tot_loss.detach().item())
+            running_joint_loss += float(loss['joint_cam'].detach().item())
+            running_smpl_joint_loss += float(loss['smpl_joint_cam'].detach().item())
+            running_proj_loss += float(loss['joint_proj'].item())
+            running_pose_param_loss += float(loss['pose_param'].item())
+            running_shape_param_loss += float(loss['shape_param'].item())
+            running_prior_loss += float(loss['prior'].item())
             
             if i % self.print_freq == 0:
-                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}) => '
-                                                f'joint: {loss1:.4f} smpl_joint: {loss2:.4f} proj: {loss3:.4f} pose: {loss4:.4f}, shape: {loss5:.4f}, prior: {loss6:.4f}')
-            
-            # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
-                import cv2
-                from utils.vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
-                inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
-                
-                pred_joint_proj, pred_joint_cam = pred_joint_proj[0].detach().cpu().numpy(), pred_joint_cam[0].detach().cpu().numpy()
-                tar_joint_img, tar_joint_cam = tar_joint_img[0].cpu().numpy(), tar_joint_cam[0].cpu().numpy()
-                meta_joint_valid, meta_has_3D = meta_joint_valid[0].cpu().numpy(), meta_has_3D[0].cpu().numpy()
-            
-                tmp_img = vis_keypoints_with_skeleton(img, pred_joint_proj, smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred.png'), tmp_img)
-                vis_3d_pose(pred_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_joint_cam_pred.png'))
-                
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img,meta_joint_valid[:,None]],1), smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
-                
-                save_obj(pred_mesh_cam[0].detach().cpu().numpy(), smpl.face, osp.join(cfg.vis_dir, f'train_{i}_mesh_cam_pred.obj'))
-
-                if meta_has_3D > 0:
-                    vis_3d_pose(tar_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_joint_cam_gt.png'), kps_3d_vis=meta_joint_valid)
-
-                if meta_has_param[0] > 0:
-                    tar_pose, tar_shape = tar_pose[0].cpu(), tar_shape[0].cpu()
-                    tar_smpl_joint_cam = tar_smpl_joint_cam[0].cpu().numpy()
-
-                    root_pose, body_pose = tar_pose[:3].reshape(1,-1), tar_pose[3:].reshape(1,-1)
-                    smpl_shape = tar_shape.reshape(1,-1)
-
-                    output = smpl.layer['neutral'](betas=smpl_shape, body_pose=body_pose, global_orient=root_pose)
-                    gt_mesh_cam = output.vertices[0].numpy()
-                    joint_cam = np.dot(smpl.h36m_joint_regressor, gt_mesh_cam)
-                    gt_mesh_cam = gt_mesh_cam - joint_cam[smpl.h36m_root_joint_idx]
-                    
-                    vis_3d_pose(tar_smpl_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_smpl_joint_cam_gt.png'))
-                    save_obj(gt_mesh_cam * 1000, smpl.face, osp.join(cfg.vis_dir, f'train_{i}_mesh_cam_gt.obj'))
-                    
+                loss['tot_loss'] = tot_loss
+                loss_message = ' '.join(['%s: %.4f' % (k, v.detach()) for k,v in loss.items()])
+                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}) => {loss_message}')
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator)) 
         self.loss_history['joint_loss'].append(running_joint_loss / len(batch_generator))     

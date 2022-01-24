@@ -5,6 +5,7 @@ import numpy as np
 
 from core.config import cfg
 from core.prior import MaxMixturePrior
+from utils.human_models import smpl
 
 class CoordLoss(nn.Module):
     def __init__(self, has_valid=False):
@@ -198,10 +199,9 @@ class Joint2JointLoss(nn.Module):
         if (target<0).sum() > 0 : assert 0
         
         batch_size, joint_num, n_view, feat_dim = output.shape
-        
-        labels = torch.arange(joint_num, device='cuda')
-        labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
-        
+        assert joint_num == len(smpl.parts_idx), "check part idx"
+        labels = torch.arange(batch_size, device='cuda')[:, None] * torch.tensor(smpl.parts_idx, device='cuda')[None, :]
+
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         labels = labels.reshape(batch_size*joint_num)    
         
@@ -272,8 +272,8 @@ class PriorLoss(nn.Module):
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
-        loss['inter_joint'] = Joint2NonJointLoss(0.1)
-        loss['intra_joint'] = Joint2JointLoss(0.1)
+        loss['inter_joint'] = Joint2NonJointLoss(0.5)
+        loss['intra_joint'] = Joint2JointLoss(0.5)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
     elif cfg.MODEL.type == 'body':
