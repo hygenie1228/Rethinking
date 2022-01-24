@@ -61,7 +61,7 @@ class Model(nn.Module):
                 loss['shape_param'] = cfg.TRAIN.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
                 loss['prior'] = cfg.TRAIN.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:, 3:], pred_smpl_shape)
 
-                loss['joint_img'] = cfg.TRAIN.joint_img_loss_weight * self.loss['joint_img'](pred_joint_img, tar_joint_img, meta_joint_valid, meta_has_3D)
+                # loss['joint_img'] = cfg.TRAIN.joint_img_loss_weight * self.loss['joint_img'](pred_joint_img, tar_joint_img, meta_joint_valid, meta_has_3D)
                 return loss
 
             else:
