@@ -12,14 +12,19 @@ class CoordLoss(nn.Module):
         super(CoordLoss, self).__init__()
 
         self.has_valid = has_valid
-        self.criterion = nn.L1Loss(reduction='mean')
+        self.criterion = nn.L1Loss(reduction='none')
 
-    def forward(self, pred, target, target_valid=None):
+    def forward(self, pred, target, target_valid=None, is_3D=None):
         if self.has_valid:
             pred, target = pred * target_valid[...,None], target * target_valid[...,None]
 
         loss = self.criterion(pred, target)
-        return loss
+
+        if is_3D is not None:
+            loss_z = loss[:,:,2:] * is_3D[:,None].float()
+            loss = torch.cat((loss[:,:,:2], loss_z),2)
+
+        return loss.mean()
     
 class ParamLoss(nn.Module):
     def __init__(self, has_valid=False):
@@ -130,6 +135,7 @@ class SupConLoss(nn.Module):
         else:
             raise ValueError('Unknown mode: {}'.format(self.contrast_mode))
 
+        import pdb; pdb.set_trace()
         # compute logits
         anchor_dot_contrast = torch.div(
             torch.matmul(anchor_feature, contrast_feature.T),
@@ -185,9 +191,9 @@ class Joint2NonJointLoss(nn.Module):
         return loss
     
     
-class Joint2JointLoss(nn.Module):
+class PartContrastLoss(nn.Module):
     def __init__(self, temperature=0.5):
-        super(Joint2JointLoss, self).__init__()
+        super(PartContrastLoss, self).__init__()
         self.temperature = temperature
         self.criterion = SupConLoss()
 
@@ -222,17 +228,13 @@ class JointContrastiveLoss(nn.Module):
 
     def forward(self, output, target):        
         batch_size, joint_num, n_view, feat_dim = output.shape
-        
-        labels = torch.arange(joint_num, device='cuda')
-        labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
-        labels[:, -cfg.TRAIN.non_joints_num:, ...] = joint_num - cfg.TRAIN.non_joints_num # dummy label : 24
-           
+
+        labels = torch.arange(batch_size, device='cuda')[:, None] * torch.arange(joint_num , device='cuda')[None, :]
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
-        target = target.reshape(batch_size*joint_num)   
-        labels = labels.reshape(batch_size*joint_num)    
+        labels = labels.reshape(batch_size*joint_num)
         
         # remove not visible
-        target_valid = (target != 0)
+        target_valid = (target.reshape(batch_size*joint_num) != 0)
         output = output[target_valid]
         labels = labels[target_valid]
         
@@ -273,7 +275,7 @@ def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['inter_joint'] = Joint2NonJointLoss(0.5)
-        loss['intra_joint'] = Joint2JointLoss(0.5)
+        loss['intra_joint'] = PartContrastLoss(0.5)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
     elif cfg.MODEL.type == 'body':
@@ -283,4 +285,7 @@ def get_loss():
         loss['pose_param'] = ParamLoss(has_valid=True)
         loss['shape_param'] = ParamLoss(has_valid=True)
         loss['prior'] = PriorLoss()
+
+        loss['joint_img'] = CoordLoss(has_valid=True)
+        loss['depth_contrast'] = JointContrastiveLoss(0.5)
     return loss

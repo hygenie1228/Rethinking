@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 #from models import ResNetBackbone
+from core.config import cfg
 from models import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d
 
 from utils.human_models import smpl
@@ -127,8 +128,9 @@ class BodyPredictor(nn.Module):
             in_dim += 2
             
         self.conv = make_conv_layers([in_dim, hidden_dim, hidden_dim], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
-        self.atten_conv = make_conv_layers([hidden_dim, hidden_dim, smpl.joint_num], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
 
+        self.joint_conv = make_conv_layers([hidden_dim, smpl.joint_num * cfg.MODEL.depth_size], kernel=1, stride=1, padding=0, bnrelu_final=False)
+        self.atten_conv = make_conv_layers([hidden_dim, hidden_dim, smpl.joint_num], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
         self.smpl_conv = make_conv_layers([hidden_dim, hidden_dim, pose_feat_dim], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
         self.shape_cam_conv = make_conv_layers([pose_feat_dim, shape_feat_dim], kernel=1, padding=0, use_bn=False)
 
@@ -152,8 +154,15 @@ class BodyPredictor(nn.Module):
             x = torch.cat([x, positional_encoding], dim=1)
         
         x = self.conv(x)
+
+        # get 2.5D joint locations
+        h, w = x.shape[2:]
+        joint_heatmap = self.joint_conv(x).view(-1, smpl.joint_num, cfg.MODEL.depth_size, h, w)
+        joint_img = self.soft_argmax_3d(joint_heatmap)
+        joint_img[..., 0] = joint_img[..., 0] / w * cfg.MODEL.input_img_shape[1]
+        joint_img[..., 1] = joint_img[..., 1] / h * cfg.MODEL.input_img_shape[0]
+
         atten_map = self.atten_conv(x)
-        
         pose_feat = self.smpl_conv(x)
         shape_cam_feat = self.shape_cam_conv(pose_feat)
         
@@ -170,7 +179,7 @@ class BodyPredictor(nn.Module):
         shape = self.shape_out(shape_cam_feat)
         cam_trans = self.cam_out(shape_cam_feat)
 
-        return pose, shape, cam_trans
+        return pose, shape, cam_trans, joint_img
 
     def attention_feature(self, features, heatmaps):
         batch_size, num_joints, height, width = heatmaps.shape
@@ -180,3 +189,24 @@ class BodyPredictor(nn.Module):
         features = torch.matmul(normalized_heatmap, features.transpose(2,1))
         features = features.transpose(2,1)
         return features
+
+    def soft_argmax_3d(self, heatmap3d):
+        d, h, w = heatmap3d.shape[-3:]
+        heatmap3d = heatmap3d.reshape((-1, smpl.joint_num, d * h * w))
+        heatmap3d = F.softmax(heatmap3d, 2)
+        heatmap3d = heatmap3d.reshape((-1, smpl.joint_num, d, h, w))
+
+        accu_x = heatmap3d.sum(dim=(2, 3))
+        accu_y = heatmap3d.sum(dim=(2, 4))
+        accu_z = heatmap3d.sum(dim=(3, 4))
+
+        accu_x = accu_x * torch.arange(w).float().cuda()[None, None, :]
+        accu_y = accu_y * torch.arange(h).float().cuda()[None, None, :]
+        accu_z = accu_z * torch.arange(d).float().cuda()[None, None, :]
+
+        accu_x = accu_x.sum(dim=2, keepdim=True)
+        accu_y = accu_y.sum(dim=2, keepdim=True)
+        accu_z = accu_z.sum(dim=2, keepdim=True)
+
+        coord_out = torch.cat((accu_x, accu_y, accu_z), dim=2)
+        return coord_out

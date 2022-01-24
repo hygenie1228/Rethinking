@@ -157,9 +157,12 @@ class BaseDataset(Dataset):
             joint_cam = joint_cam - joint_cam[self.root_joint_idx]
             has_3D = np.array([1])
         else:
-            joint_cam = np.zeros((smpl.joint_num, 3))
+            joint_cam = np.zeros((joint_img.shape[0], 3))
             has_3D = np.array([0])
-            
+
+        joint_depth = (joint_cam[:, 2:] / (cfg.CAMERA.bbox_3d_size * 1000 / 2) + 1) / 2. * cfg.MODEL.depth_size  # change cfg.bbox_3d_size from meter to milimeter
+        joint_img = np.concatenate([joint_img, joint_depth], axis=-1)
+
         if self.has_smpl_param:
             smpl_pose, smpl_shape = smpl_param_processing(data['smpl_param'], data['cam_param'], do_flip, rot)
             mesh_cam, smpl_joint_cam = self.get_smpl_coord(smpl_pose, smpl_shape)

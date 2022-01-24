@@ -51,6 +51,7 @@ cfg.MODEL.backbone = 'resnet50'
 cfg.MODEL.use_upsampling_layer = True
 cfg.MODEL.input_img_shape = (256, 192)
 cfg.MODEL.img_feat_shape = (64, 48)
+cfg.MODEL.depth_size = 64
 cfg.MODEL.projector_hidden_dim = 256
 cfg.MODEL.projector_out_dim = 256
 cfg.MODEL.predictor_hidden_dim = 256
@@ -82,6 +83,7 @@ cfg.TRAIN.two_view = True
 cfg.TRAIN.inter_joint_loss_weight = 1.0
 cfg.TRAIN.intra_joint_loss_weight = 1.0
 cfg.TRAIN.joint_loss_weight = 1.0
+cfg.TRAIN.joint_img_loss_weight = 1.0
 cfg.TRAIN.proj_loss_weight = 1.0
 cfg.TRAIN.pose_loss_weight = 1.0
 cfg.TRAIN.shape_loss_weight = 1.0
@@ -106,6 +108,7 @@ cfg.CAMERA = edict()
 cfg.CAMERA.focal = (5000, 5000)
 cfg.CAMERA.princpt = (cfg.MODEL.input_img_shape[1]/2, cfg.MODEL.input_img_shape[0]/2)
 cfg.CAMERA.camera_3d_size = 2.5
+cfg.CAMERA.bbox_3d_size = 2
 
 
 def _update_dict(k, v):

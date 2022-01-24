@@ -46,7 +46,7 @@ class Model(nn.Module):
 
         elif cfg.MODEL.type == 'body':
             inp_img = batch['img'].cuda()
-            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape = self.forward_body(inp_img)
+            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, pred_joint_img = self.forward_body(inp_img)
 
             if mode == 'train':
                 tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
@@ -56,11 +56,12 @@ class Model(nn.Module):
                 loss = {}
                 loss['joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
                 loss['smpl_joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:, :, None])
-                loss['joint_proj'] = cfg.TRAIN.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
+                loss['joint_proj'] = cfg.TRAIN.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img[..., :2], meta_joint_valid)
                 loss['pose_param'] = cfg.TRAIN.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
                 loss['shape_param'] = cfg.TRAIN.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
                 loss['prior'] = cfg.TRAIN.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:, 3:], pred_smpl_shape)
 
+                loss['joint_img'] = cfg.TRAIN.joint_img_loss_weight * self.loss['joint_img'](pred_joint_img, tar_joint_img, meta_joint_valid, meta_has_3D)
                 return loss
 
             else:
@@ -96,13 +97,13 @@ class Model(nn.Module):
         batch_size = inp_img.shape[0]
         img_feat = self.backbone(inp_img)
 
-        smpl_pose, smpl_shape, cam_trans = self.head(img_feat)
+        smpl_pose, smpl_shape, cam_trans, joint_img = self.head(img_feat)
 
         smpl_pose = rot6d_to_axis_angle(smpl_pose.reshape(-1,6)).reshape(batch_size,-1)
         cam_trans = self.get_camera_trans(cam_trans)
         joint_proj, joint_cam, mesh_cam = self.get_coord(smpl_pose[:,:3], smpl_pose[:,3:], smpl_shape, cam_trans)
         
-        return mesh_cam, joint_cam, joint_proj, smpl_pose, smpl_shape
+        return mesh_cam, joint_cam, joint_proj, smpl_pose, smpl_shape, joint_img
 
 
     def forward_hand(self, inp_img):
@@ -132,7 +133,6 @@ class Model(nn.Module):
         t_z = k_value * gamma
         cam_trans = torch.cat((t_xy, t_z[:,None]),1)
         return cam_trans
-    
     
     def get_coord(self, smpl_root_pose, smpl_pose, smpl_shape, cam_trans):
         batch_size = smpl_root_pose.shape[0]
