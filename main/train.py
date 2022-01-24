@@ -33,6 +33,7 @@ tester = Tester(args)
 
 logger.info(f"===> Start training...")
 for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
+    np.random.seed()
     trainer.train(epoch)
     trainer.lr_scheduler.step()
     

@@ -51,9 +51,12 @@ def get_dataloader(dataset_names, is_train):
         
         return dataset_list, dataloader_list
     else:
+        def worker_init_fn(worker_id):
+            np.random.seed(np.random.get_state()[1][0] + worker_id)
+
         trainset_loader = MultipleDatasets(dataset_list, partition=cfg.DATASET.train_partition, make_same_len=cfg.DATASET.make_same_len)
         batch_generator = DataLoader(dataset=trainset_loader, batch_size=batch_per_dataset * len(dataset_names), shuffle=cfg[dataset_split].shuffle,
-                                     num_workers=cfg.DATASET.workers, pin_memory=True, drop_last=True)
+                                     num_workers=cfg.DATASET.workers, pin_memory=True, drop_last=True, worker_init_fn=worker_init_fn)
         return dataset_list, batch_generator
 
 
