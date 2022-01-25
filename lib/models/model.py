@@ -25,7 +25,7 @@ class Model(nn.Module):
             self.trainable_modules = [self.backbone, self.head]
 
     def forward(self, batch, mode='train'):
-        if cfg.TRAIN.two_view  and mode == 'train':
+        if cfg.TRAIN.two_view and mode == 'train':
             for k in batch.keys():
                 batch[k] = torch.cat(batch[k])
 
@@ -34,7 +34,7 @@ class Model(nn.Module):
 
             features = self.forward_contrastive(inp_img, joint_img, joint_valid)
 
-            half_batch_size = len(features) // 2
+            half_batch_size = features.shape[0] // 2
             features = torch.stack([features[:half_batch_size], features[half_batch_size:]])
             features = features.permute(1, 2, 0, 3)
             joint_valid = joint_valid[:half_batch_size] * joint_valid[half_batch_size:]
@@ -49,9 +49,9 @@ class Model(nn.Module):
             pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, pred_joint_img = self.forward_body(inp_img)
 
             if mode == 'train':
-                tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
-                tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
-                meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
+                tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'], batch['joint_cam'], batch['smpl_joint_cam']
+                tar_pose, tar_shape = batch['pose'], batch['shape']
+                meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'], batch['has_3D'], batch['has_param']
 
                 loss = {}
                 loss['joint_cam'] = cfg.TRAIN.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
@@ -62,6 +62,11 @@ class Model(nn.Module):
                 loss['prior'] = cfg.TRAIN.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:, 3:], pred_smpl_shape)
 
                 # loss['joint_img'] = cfg.TRAIN.joint_img_loss_weight * self.loss['joint_img'](pred_joint_img, tar_joint_img, meta_joint_valid, meta_has_3D)
+                # if cfg.TRAIN.two_view:
+                #     half_batch_size = pred_joint_img.shape[0] // 2
+                #     loss['depth_cons'] = cfg.TRAIN.depth_cons_loss_weight * self.loss['depth_cons'](pred_joint_img[:half_batch_size, :, 2:], pred_joint_img[half_batch_size:, :, 2:], \
+                #                                                                                 meta_joint_valid[:half_batch_size] * meta_joint_valid[half_batch_size:])
+
                 return loss
 
             else:

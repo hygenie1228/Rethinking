@@ -152,7 +152,7 @@ class BodyPredictor(nn.Module):
         if self.pos_enc:
             positional_encoding = torch.repeat_interleave(self.positional_encoding[None,...], x.shape[0], dim=0)
             x = torch.cat([x, positional_encoding], dim=1)
-        
+
         x = self.conv(x)
 
         # get 2.5D joint locations

@@ -127,17 +127,10 @@ class Trainer:
         
         if cfg.MODEL.type == 'contrastive':
             self.train = self.train_contrastive
-            self.inter_joint_loss_weight = cfg.TRAIN.inter_joint_loss_weight
-            self.intra_joint_loss_weight = cfg.TRAIN.intra_joint_loss_weight
         elif cfg.MODEL.type == '2d_joint':
             self.train = self.train_2d_joint
         elif cfg.MODEL.type == 'body':
             self.train = self.train_body
-            self.joint_loss_weight = cfg.TRAIN.joint_loss_weight
-            self.proj_loss_weight = cfg.TRAIN.proj_loss_weight
-            self.pose_loss_weight = cfg.TRAIN.pose_loss_weight
-            self.shape_loss_weight = cfg.TRAIN.shape_loss_weight
-            self.prior_loss_weight = cfg.TRAIN.prior_loss_weight
         elif cfg.MODEL.type == 'hand':
             self.train = self.train_hand
 
@@ -220,10 +213,7 @@ class Tester:
             self.val_loader = self.val_loader[0]
             self.dataset_length = len(self.val_dataset)
 
-            self.eval_metrics = {'mpjpe': [], 'pa_mpjpe': []}
-            if self.val_dataset.joint_set['name'] == '3DPW':
-                self.eval_metrics['mpvpe'] = []
-        
+        self.eval_metrics = {}
         self.J_regressor = torch.from_numpy(smpl.h36m_joint_regressor).float().cuda()
 
         self.print_freq = cfg.TRAIN.print_freq

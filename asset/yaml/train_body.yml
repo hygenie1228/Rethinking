@@ -13,7 +13,7 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/exp_01-24_16:10/checkpoints/final.pth.tar'
+    weight_path: 'experiment/exp_01-25_13:10/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
     depth_size: 64
     predictor_hidden_dim: 256
@@ -26,11 +26,11 @@ TRAIN:
     batch_size: 196
     shuffle: True 
     begin_epoch: 1
-    end_epoch: 2
+    end_epoch: 20
     optimizer: 'adam'
     scheduler: 'step'
     lr: 1.0e-4
-    lr_step: []
+    lr_step: [15]
     lr_factor: 0.1
     print_freq: 10
     use_pseudo_GT: True
@@ -39,6 +39,7 @@ TRAIN:
 
     joint_loss_weight: 1.0
     joint_img_loss_weight: 0.1
+    depth_cons_loss_weight: 1.0
     proj_loss_weight: 0.1
     pose_loss_weight: 1.0
     shape_loss_weight: 1.0

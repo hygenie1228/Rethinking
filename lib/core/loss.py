@@ -135,7 +135,6 @@ class SupConLoss(nn.Module):
         else:
             raise ValueError('Unknown mode: {}'.format(self.contrast_mode))
 
-        import pdb; pdb.set_trace()
         # compute logits
         anchor_dot_contrast = torch.div(
             torch.matmul(anchor_feature, contrast_feature.T),
@@ -206,7 +205,7 @@ class PartContrastLoss(nn.Module):
         
         batch_size, joint_num, n_view, feat_dim = output.shape
         assert joint_num == len(smpl.parts_idx), "check part idx"
-        labels = torch.arange(batch_size, device='cuda')[:, None] * torch.tensor(smpl.parts_idx, device='cuda')[None, :]
+        labels = (torch.arange(batch_size, device='cuda')[:, None] + 1) * torch.tensor(smpl.parts_idx, device='cuda')[None, :]
 
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         labels = labels.reshape(batch_size*joint_num)    
@@ -229,10 +228,10 @@ class JointContrastiveLoss(nn.Module):
     def forward(self, output, target):        
         batch_size, joint_num, n_view, feat_dim = output.shape
 
-        labels = torch.arange(batch_size, device='cuda')[:, None] * torch.arange(joint_num , device='cuda')[None, :]
+        labels = (torch.arange(batch_size, device='cuda')[:, None] + 1) * torch.arange(joint_num, device='cuda')[None, :]
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         labels = labels.reshape(batch_size*joint_num)
-        
+
         # remove not visible
         target_valid = (target.reshape(batch_size*joint_num) != 0)
         output = output[target_valid]
@@ -275,7 +274,7 @@ def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['inter_joint'] = Joint2NonJointLoss(0.5)
-        loss['intra_joint'] = PartContrastLoss(0.5)
+        loss['intra_joint'] = JointContrastiveLoss(0.5) #PartContrastLoss(0.5)# # #
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
     elif cfg.MODEL.type == 'body':
@@ -287,5 +286,7 @@ def get_loss():
         loss['prior'] = PriorLoss()
 
         loss['joint_img'] = CoordLoss(has_valid=True)
-        loss['depth_contrast'] = JointContrastiveLoss(0.5)
+        loss['depth_cons'] = CoordLoss(has_valid=True)
+
+        # loss['depth_contrast'] = JointContrastiveLoss(0.5)
     return loss

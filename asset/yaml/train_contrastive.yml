@@ -22,11 +22,11 @@ TRAIN:
     batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 30
+    end_epoch: 40
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.01
-    lr_step: [15]
+    lr_step: [15,30]
     lr_factor: 0.1
     print_freq: 10
     non_joints_num: 24
