@@ -32,17 +32,19 @@ class Model(nn.Module):
         if cfg.MODEL.type == 'contrastive':
             inp_img, joint_img, joint_valid = batch['img'], batch['joint_img'], batch['joint_valid']
 
-            features = self.forward_contrastive(inp_img, joint_img, joint_valid)
+            features = self.forward_contrastive(inp_img, joint_img)
 
             half_batch_size = features.shape[0] // 2
             features = torch.stack([features[:half_batch_size], features[half_batch_size:]])
             features = features.permute(1, 2, 0, 3)
-            joint_valid = joint_valid[:half_batch_size] * joint_valid[half_batch_size:]
+            new_joint_valid = torch.zeros_like(joint_valid[:half_batch_size], device=joint_valid.device)
+            new_joint_valid[(joint_valid[:half_batch_size] == 1) & (joint_valid[half_batch_size:] == 1)] = 1
+            new_joint_valid[(joint_valid[:half_batch_size] == -1) & (joint_valid[half_batch_size:] == -1)] = -1
 
             # features: [hbs, joint_num+non_joint_num, n_views, feat_dim]
-            # joint_valid: [hbs, joint_num+non_joint_num]
+            # new_joint_valid: [hbs, joint_num+non_joint_num]
 
-            return features, joint_valid
+            return features, new_joint_valid
 
         elif cfg.MODEL.type == 'body':
             inp_img = batch['img'].cuda()
@@ -77,11 +79,11 @@ class Model(nn.Module):
             assert 0
 
 
-    def forward_contrastive(self, inp_img, joints=None, joints_valid=None):
+    def forward_contrastive(self, inp_img, joints=None):
         batch_size = inp_img.shape[0]
         img_feat = self.backbone(inp_img)
 
-        joint_feat = self.sampling_joint_feature(img_feat, joints, joints_valid)
+        joint_feat = self.sampling_joint_feature(img_feat, joints)
         joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 
         joint_embedding = self.head(joint_feat)
@@ -115,7 +117,7 @@ class Model(nn.Module):
         pass
     
     
-    def sampling_joint_feature(self, img_feat, joints, joints_valid):
+    def sampling_joint_feature(self, img_feat, joints):
         batch_size, joint_num = joints.shape[:2]
 
         img_feat_joints = []
