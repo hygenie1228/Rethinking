@@ -79,9 +79,11 @@ def count_parameters(model):
 def get_optimizer(model):
     total_params = []
     for module in model.trainable_modules:
-        lr = cfg.TRAIN.lr / 10. if module == 'backbone' else cfg.TRAIN.lr
-        item = {'params': module.parameters(), 'lr': lr}
-        total_params.append(item)
+        total_params += list(module.parameters())
+
+        # lr = cfg.TRAIN.lr / 10. if module == 'backbone' else cfg.TRAIN.lr
+        # item = {'params': module.parameters(), 'lr': lr}
+        # total_params.append(item)
 
     optimizer = None
     if cfg.TRAIN.optimizer == 'sgd':
