@@ -175,7 +175,7 @@ class Joint2NonJointLoss(nn.Module):
 
     def forward(self, output, target):
         batch_size, joint_num, n_view, feat_dim = output.shape
-        
+
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         target = target.reshape(batch_size*joint_num)    
         
@@ -206,6 +206,9 @@ class PartContrastLoss(nn.Module):
         batch_size, joint_num, n_view, feat_dim = output.shape
         assert joint_num == len(smpl.parts_idx), "check part idx"
         labels = (torch.arange(batch_size, device='cuda')[:, None] + 1) * torch.tensor(smpl.parts_idx, device='cuda')[None, :]
+
+        # labels = torch.tensor(smpl.parts_idx, device='cuda')
+        # labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
 
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         labels = labels.reshape(batch_size*joint_num)    
@@ -274,7 +277,7 @@ def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['inter_joint'] = Joint2NonJointLoss(0.5)
-        loss['intra_joint'] = JointContrastiveLoss(0.5) #PartContrastLoss(0.5)# # #
+        loss['intra_joint'] = JointContrastiveLoss(0.5)  # PartContrastLoss(0.5)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
     elif cfg.MODEL.type == 'body':

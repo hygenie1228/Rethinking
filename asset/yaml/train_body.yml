@@ -13,7 +13,7 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/exp_01-25_13:10/checkpoints/final.pth.tar'
+    weight_path: 'experiment/exp_01-26_12:06/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
     depth_size: 64
     predictor_hidden_dim: 256
@@ -23,7 +23,7 @@ TRAIN:
     pretrained_model_type: 'posecontrast'
     transfer_backbone: True
     freeze_backbone: False
-    batch_size: 196
+    batch_size: 392 #196
     shuffle: True 
     begin_epoch: 1
     end_epoch: 20
@@ -35,7 +35,7 @@ TRAIN:
     print_freq: 10
     use_pseudo_GT: True
     vis: False
-    two_view: True
+    two_view: False
 
     joint_loss_weight: 1.0
     joint_img_loss_weight: 0.1
