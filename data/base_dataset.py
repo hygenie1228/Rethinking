@@ -43,13 +43,17 @@ class BaseDataset(Dataset):
             logger.info('Invalid Model Type!')
             assert 0
 
-        if cfg.TRAIN.two_view and self.data_split == 'train':
-            batch1 = get_item(index)
-            batch2 = get_item(index)
+        if cfg.TRAIN.num_view > 1 and self.data_split == 'train':
+            items = []
+            for _ in range(cfg.TRAIN.num_view):
+                item = get_item(index)
+                items.append(item)
 
             batch = {}
-            for k in batch1.keys():
-                batch[k] = [batch1[k], batch2[k]]
+            for k in items[0].keys():
+                batch[k] = []
+                for idx in range(cfg.TRAIN.num_view):
+                    batch[k].append(items[idx][k])
         else:
             batch = get_item(index)
 

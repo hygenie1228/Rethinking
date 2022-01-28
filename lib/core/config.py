@@ -78,7 +78,7 @@ cfg.TRAIN.non_joints_num = 24
 cfg.TRAIN.heatmap_sigma = 10
 cfg.TRAIN.use_pseudo_GT = False
 cfg.TRAIN.vis = False
-cfg.TRAIN.two_view = True
+cfg.TRAIN.num_view = 1
 
 cfg.TRAIN.inter_joint_loss_weight = 1.0
 cfg.TRAIN.intra_joint_loss_weight = 1.0

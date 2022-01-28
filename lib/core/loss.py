@@ -231,9 +231,10 @@ class JointContrastiveLoss(nn.Module):
     def forward(self, output, target):        
         batch_size, joint_num, n_view, feat_dim = output.shape
 
-        labels = torch.arange(joint_num, device='cuda')
-        labels = torch.repeat_interleave(labels[None, :], batch_size, dim=0)
-        # labels = (torch.arange(batch_size, device='cuda')[:, None] + 1) * torch.arange(joint_num, device='cuda')[None, :]
+        # labels = torch.arange(joint_num, device='cuda')
+        # labels = torch.repeat_interleave(labels[None, :], batch_size, dim=0)
+        labels = (torch.arange(batch_size, device='cuda')[:, None] + 1) * torch.arange(joint_num, device='cuda')[None, :]
+
         output = output.reshape(batch_size*joint_num, n_view, feat_dim)
         labels = labels.reshape(batch_size*joint_num)
 

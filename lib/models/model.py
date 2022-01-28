@@ -25,7 +25,7 @@ class Model(nn.Module):
             self.trainable_modules = [self.backbone, self.head]
 
     def forward(self, batch, mode='train'):
-        if cfg.TRAIN.two_view and mode == 'train':
+        if cfg.TRAIN.num_view > 1 and mode == 'train':
             for k in batch.keys():
                 batch[k] = torch.cat(batch[k])
 
