@@ -46,9 +46,10 @@ cfg.DATASET.random_seed = 123
 cfg.MODEL = edict()
 cfg.MODEL.type = 'contrastive'
 cfg.MODEL.backbone = 'resnet50'
+cfg.MODEL.regressor = 'pare'
 cfg.MODEL.use_upsampling_layer = True
 cfg.MODEL.input_img_shape = (256, 192)
-cfg.MODEL.img_feat_shape = (64, 48)
+cfg.MODEL.img_feat_shape = (8, 6)
 cfg.MODEL.projector_hidden_dim = 256
 cfg.MODEL.projector_out_dim = 256
 cfg.MODEL.predictor_hidden_dim = 256
@@ -79,13 +80,15 @@ cfg.TRAIN.temperature = 0.5
 cfg.TRAIN.use_pseudo_GT = False
 cfg.TRAIN.vis = False
 
-cfg.TRAIN.inter_joint_loss_weight = 1.0
-cfg.TRAIN.intra_joint_loss_weight = 1.0
+cfg.TRAIN.jointness_loss_weight = 1.0
+cfg.TRAIN.joint_contrast_loss_weight = 1.0
 cfg.TRAIN.joint_loss_weight = 1.0
 cfg.TRAIN.proj_loss_weight = 1.0
 cfg.TRAIN.pose_loss_weight = 1.0
 cfg.TRAIN.shape_loss_weight = 1.0
 cfg.TRAIN.prior_loss_weight = 1.0e-4
+cfg.TRAIN.hm_loss_weight = 1.0
+cfg.TRAIN.contrast_loss_weight = 0.0
 
 """ Augmentation """
 cfg.AUG = edict()

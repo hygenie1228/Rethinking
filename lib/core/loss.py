@@ -6,8 +6,11 @@ import numpy as np
 from core.config import cfg
 from core.prior import MaxMixturePrior
 
+<<<<<<< HEAD
 from human_models import smpl, coco
 
+=======
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
 class CLSLoss(nn.Module):
     def __init__(self):
         super(CLSLoss, self).__init__()
@@ -211,8 +214,13 @@ class Joint2JointLoss(nn.Module):
 
     def forward(self, output, target):
         batch_size, joint_num, n_view, feat_dim = output.shape
+<<<<<<< HEAD
         target = target.clone().long()
 
+=======
+        if (target<0).sum() > 0 : assert 0
+        
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
         labels = torch.arange(joint_num, device='cuda')
         labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
 
@@ -226,6 +234,7 @@ class Joint2JointLoss(nn.Module):
         
         loss = self.criterion(output, labels)
         return loss
+<<<<<<< HEAD
 
 
 class ImageContrastiveLoss(nn.Module):
@@ -252,12 +261,16 @@ class ImageContrastiveLoss(nn.Module):
         return loss
 
 
+=======
+    
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
 class JointContrastiveLoss(nn.Module):
     def __init__(self, temperature=0.07):
         super(JointContrastiveLoss, self).__init__()
         self.temperature = temperature
         self.criterion = SupConLoss()
 
+<<<<<<< HEAD
     def forward(self, output, target):
         batch_size, joint_num, n_view, feat_dim = output.shape 
         
@@ -285,6 +298,20 @@ class JointContrastiveLoss(nn.Module):
         labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
         
         output = output.reshape(batch_size*joint_num, 1, feat_dim)
+=======
+    def forward(self, output, target):     
+        if len(output.shape) == 3:
+            batch_size, joint_num, feat_dim = output.shape
+            n_view = 1
+        else:
+            batch_size, joint_num, n_view, feat_dim = output.shape
+        
+        labels = torch.arange(joint_num, device='cuda')
+        labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
+
+        output = output.reshape(batch_size*joint_num, n_view, feat_dim)
+        target = target.reshape(batch_size*joint_num)   
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
         labels = labels.reshape(batch_size*joint_num)    
         
         # remove not visible
@@ -292,10 +319,16 @@ class JointContrastiveLoss(nn.Module):
         output = output[target_valid]
         labels = labels[target_valid]
         
+        output = F.normalize(output, dim=2)
         loss = self.criterion(output, labels)
+<<<<<<< HEAD
         return loss'''
 
 
+=======
+        return loss
+    
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
 class PriorLoss(nn.Module):
     def __init__(self):
         super(PriorLoss, self).__init__()
@@ -371,12 +404,18 @@ class ContrastiveLoss(nn.Module):
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
+<<<<<<< HEAD
         loss['j2nj'] = Joint2NonJointLoss(temperature=cfg.TRAIN.temperature)
         #loss['j2j'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
         #loss['intra_joint'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
         loss['j2j'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
         loss['img_cont'] = JointContrastiveLoss(temperature=cfg.TRAIN.temperature)
         loss['hm'] = HeatmapMSELoss(has_valid=True)
+=======
+        #loss['inter_joint'] = Joint2NonJointLoss()
+        loss['jointness'] = CLSLoss()
+        loss['joint_contrast'] = Joint2JointLoss()
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
     elif cfg.MODEL.type == '2d_contrast':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
         loss['contrast'] = JointContrastiveLoss()

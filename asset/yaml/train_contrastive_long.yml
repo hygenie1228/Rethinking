@@ -1,6 +1,10 @@
 DATASET:
     # 'MSCOCO'
+<<<<<<< HEAD
     train_list: ['MSCOCO']    
+=======
+    train_list: ['MSCOCO']
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
     # PW3D  
     test_list: []
     train_partition: [1.0]
@@ -23,6 +27,7 @@ TRAIN:
     batch_size: 128
     shuffle: True
     begin_epoch: 1
+<<<<<<< HEAD
     end_epoch: 80
     warmup_epoch: 3
     optimizer: 'adam'
@@ -39,10 +44,29 @@ TRAIN:
     inter_joint_loss_weight: 0.1
     intra_joint_loss_weight: 1.0
     temperature: 1.0
+=======
+    end_epoch: 140
+    optimizer: 'adam'
+    scheduler: 'step'
+    lr: 0.001
+    lr_step: [80, 120]
+    lr_factor: 0.1
+    print_freq: 10
+    non_joints_num: 19
+    heatmap_sigma: 10
+    vis: True
+
+    jointness_loss_weight: 1.0
+    joint_contrast_loss_weight: 1.0
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
 
 AUG:
     scale_factor: 0.25
     rot_factor: 30
     color_factor: 0.2
+<<<<<<< HEAD
     blur_factor: 1.0
+=======
+    blur_factor: 2.0
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
     flip: True

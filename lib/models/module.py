@@ -3,12 +3,17 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from models import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d
+<<<<<<< HEAD
 
 from human_models import smpl, coco
+=======
+from human_models import smpl
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
 
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
+<<<<<<< HEAD
         self.projection_head_1 = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
         self.projection_head_2 = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
@@ -16,53 +21,86 @@ class Projector(nn.Module):
         x1 = self.projection_head_1(x)
         x2 = self.projection_head_2(x)
         return x1, x2
+=======
+        self.projection_head = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
+        self.cls_head = make_linear_layers([in_dim, hidden_dim, 1], relu_final=False)
+
+    def forward(self, x):
+        batch_size, sample_num = x.shape[0], x.shape[1]
+        x = x.view(batch_size*sample_num, x.shape[-1])
+
+        proj_feat = self.projection_head(x)
+        proj_feat = F.normalize(proj_feat, dim=1)
+        proj_feat = proj_feat.view(batch_size, -1, proj_feat.shape[-1])
+
+        cls_score = self.cls_head(x)
+        cls_score = torch.sigmoid(cls_score)
+        cls_score = cls_score.view(batch_size, -1)
+        
+        return proj_feat, cls_score
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
     
 class HeatmapPredictor(nn.Module):
-    def __init__(self, in_dim, hidden_dim, out_dim):
+    def __init__(self, in_dim, hidden_dim, out_dim, proj_hidden_dim, proj_out_dim):
         super().__init__()
         self.head = make_conv_layers([in_dim, hidden_dim, out_dim], kernel=1, padding=0, use_bn=False)
+        self.projection_head = make_linear_layers([in_dim, proj_hidden_dim, proj_out_dim], relu_final=False)
 
-    def forward(self, x):
+    def forward(self, x, joint_feats=None):
         x = self.head(x)
-        return x
 
-class Predictor(nn.Module):
-    def __init__(self, in_dim, hidden_dim, img_feat_shape, pos_enc=False):
+        if joint_feats is not None:
+            joint_feats = self.projection_head(joint_feats)
+
+        return x, joint_feats
+
+class BodyProjector(nn.Module):
+    def __init__(self, in_dim, hidden_dim, proj_dim):    
         super().__init__()
-        self.img_feat_shape = img_feat_shape
-        self.pos_enc = pos_enc
+
+        self.pose_out = make_linear_layers([in_dim, hidden_dim, (smpl.joint_num-1)*6], relu_final=False, use_bn=False)
+        self.shape_out = make_linear_layers([in_dim, hidden_dim, smpl.shape_param_dim], relu_final=False, use_bn=False)
         
-        if pos_enc:
-            in_dim += 2
-            
-        self.conv = make_conv_layers([in_dim, hidden_dim, hidden_dim], kernel=1, padding=0, use_bn=False)
-        self.root_pose_out = make_linear_layers([hidden_dim,hidden_dim,6], relu_final=False, use_bn=True)
-        self.pose_out = make_linear_layers([hidden_dim,hidden_dim,(smpl.joint_num-1)*6], relu_final=False, use_bn=True)
-        self.shape_out = make_linear_layers([hidden_dim,hidden_dim,smpl.shape_param_dim], relu_final=False, use_bn=True)
-        self.cam_out = make_linear_layers([hidden_dim,hidden_dim,3], relu_final=False, use_bn=True)
-        
-        if self.pos_enc:
-            pos_h = torch.arange(self.img_feat_shape[0])[:, None]
-            pos_h = torch.repeat_interleave(pos_h, self.img_feat_shape[1], dim=1)
-            pos_w = torch.arange(self.img_feat_shape[1])[None, :]
-            pos_w = torch.repeat_interleave(pos_w, self.img_feat_shape[0], dim=0)
-            positional_encoding = torch.stack([pos_h, pos_w])
-            self.register_buffer('positional_encoding', positional_encoding)
+        self.pose_projector = nn.Conv1d(1,proj_dim,1)
+        self.shape_projector = nn.Conv1d(1,proj_dim,1)
 
     def forward(self, x):
-        if self.pos_enc:
-            positional_encoding = torch.repeat_interleave(self.positional_encoding[None,...], x.shape[0], dim=0)
-            x = torch.cat([x, positional_encoding], dim=1)
-        
-        x = self.conv(x)
+        batch_size = x.shape[0]
         x = x.mean((2,3))
 
-        root_pose = self.root_pose_out(x)
+        pose = self.pose_out(x)
+        shape = self.shape_out(x)
+
+        pose_feat = self.pose_projector(pose[:,None,:])
+        shape_feat = self.shape_projector(shape[:,None,:])
+
+        pose_feat = pose_feat.reshape(batch_size, -1)
+        shape_feat = shape_feat.reshape(batch_size, -1)
+        
+        return pose, shape, pose_feat, shape_feat
+
+class FCBodyPredictor(nn.Module):
+    def __init__(self, in_dim, hidden_dim):
+        super().__init__()
+        self.fc1 = make_linear_layers([in_dim, hidden_dim], relu_final=False, use_bn=False)
+        self.drop1 = nn.Dropout()
+        self.fc2 = make_linear_layers([hidden_dim, hidden_dim], relu_final=False, use_bn=False)
+        self.drop2 = nn.Dropout()
+        self.pose_out = make_linear_layers([hidden_dim,smpl.joint_num*6], relu_final=False, use_bn=False)
+        self.shape_out = make_linear_layers([hidden_dim,smpl.shape_param_dim], relu_final=False, use_bn=False)
+        self.cam_out = make_linear_layers([hidden_dim,3], relu_final=False, use_bn=False)
+
+    def forward(self, x):
+        x = x.mean((2,3))
+        x = self.fc1(x)
+        x = self.drop1(x)
+        x = self.fc2(x)
+        x = self.drop2(x)
+
         pose = self.pose_out(x)
         shape = self.shape_out(x)
         cam_trans = self.cam_out(x)
 
-        pose = torch.cat([root_pose,pose], dim=-1)
         return pose, shape, cam_trans
 
 

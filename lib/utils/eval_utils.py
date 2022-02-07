@@ -9,7 +9,7 @@ def eval_mpjpe(predicted, target):
     return np.mean(np.sqrt(np.sum((predicted - target) ** 2, 1)))
 
 def eval_pa_mpjpe(predicted, target):        
-    predicted = rigid_align(predicted, target)
+    predicted = rigid_align(predicted.copy(), target.copy())
     return eval_mpjpe(predicted, target)
 
 def rigid_transform_3D(A, B):

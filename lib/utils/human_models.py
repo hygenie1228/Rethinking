@@ -62,19 +62,27 @@ class COCO(object):
         self.root_joint_idx = self.joints_name.index('Pelvis')
         self.flip_pairs = ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16))
         self.skeleton = ((1, 2), (0, 1), (0, 2), (2, 4), (1, 3), (6, 8), (8, 10), (5, 7), (7, 9), (12, 14), (14, 16), (11, 13), (13, 15), (17, 11), (17, 12), (17, 18), (18, 5), (18, 6), (18, 0))
+<<<<<<< HEAD
         self.adj_matrix = np.identity(self.joint_num, dtype=np.int32)
 
         for pair in self.skeleton:
             self.adj_matrix [pair[0], pair[1]] = 1
             self.adj_matrix [pair[1], pair[0]] = 1
 
+=======
+        
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
         self.orig_joint_num = 17
         self.orig_joints_name = ('Nose', 'L_Eye', 'R_Eye', 'L_Ear', 'R_Ear', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow', 'L_Wrist', 'R_Wrist', 'L_Hip', 'R_Hip', 'L_Knee', 'R_Knee', 'L_Ankle', 'R_Ankle')
         self.orig_flip_pairs = ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16))
         self.orig_skeleton = ((15, 13), (13, 11), (16, 14), (14, 12), (11, 12),(5, 11), (6, 12), (5, 6), (5, 7), (6, 8), (7, 9), (8, 10), (1, 2), (0, 1), (0, 2), (1, 3), (2, 4), (3, 5), (4, 6))
 
         self.eval_joints = (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> e626c3b948bf2c5179adc2c9779ea41d243eeaaf
 
 smpl = SMPL()
 coco = COCO()
