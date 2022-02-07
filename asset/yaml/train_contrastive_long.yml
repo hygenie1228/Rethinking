@@ -41,8 +41,8 @@ TRAIN:
     temperature: 1.0
 
 AUG:
-    scale_factor: 0.25
-    rot_factor: 30
+    scale_factor: 0.3
+    rot_factor: 40
     color_factor: 0.2
     blur_factor: 1.0
     shift_factor: 0.0
