@@ -18,15 +18,15 @@ MODEL:
 
 TRAIN:      
     # 'pose', 'cls'
-    pretrained_model_type: 'pose'
+    pretrained_model_type: 'cls'
     transfer_backbone: True
-    batch_size: 4
+    batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 30
-    warmup_epoch: 2
+    end_epoch: 80
+    warmup_epoch: 3
     optimizer: 'adam'
-    scheduler: 'cosine'
+    scheduler: 'step'
     lr: 0.001
     min_lr: 1.0e-6
     lr_step: [40, 60]
@@ -34,10 +34,15 @@ TRAIN:
     print_freq: 10
     non_joints_num: 12
     heatmap_sigma: 10
-    vis: False
+    vis: True
+
+    inter_joint_loss_weight: 0.1
+    intra_joint_loss_weight: 1.0
+    temperature: 1.0
 
 AUG:
     scale_factor: 0.25
     rot_factor: 30
     color_factor: 0.2
+    blur_factor: 1.0
     flip: True

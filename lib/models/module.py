@@ -2,72 +2,20 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-#from models import ResNetBackbone
 from models import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d
 
-from human_models import smpl
-
-class ResNetFPN(nn.Module):
-    def __init__(self, resnet_type, n_feats):
-        super().__init__()      
-        
-        if resnet_type == 50:
-            layers = [256, 512, 1024, 2048]
-
-        n_feats = n_feats//4
-        self.resnet = ResNetBackbone(resnet_type)
-        self.fpn_lateral2 = nn.Conv2d(layers[0], n_feats, 1, 1)
-        self.fpn_lateral3 = nn.Conv2d(layers[1], n_feats, 1, 1)
-        self.fpn_lateral4 = nn.Conv2d(layers[2], n_feats, 1, 1)
-        self.fpn_lateral5 = nn.Conv2d(layers[3], n_feats, 1, 1)
-
-        self.fpn_output2 = nn.Sequential(*[nn.Upsample(scale_factor=2, mode='nearest'), nn.Conv2d(n_feats, n_feats, 3, 1, padding=1), \
-                                          nn.Upsample(scale_factor=2, mode='nearest'), nn.Conv2d(n_feats, n_feats, 3, 1, padding=1), \
-                                          nn.Upsample(scale_factor=2, mode='nearest'), nn.Conv2d(n_feats, n_feats, 3, 1, padding=1)])
-        self.fpn_output3 = nn.Sequential(*[nn.Upsample(scale_factor=2, mode='nearest'), nn.Conv2d(n_feats, n_feats, 3, 1, padding=1), \
-                                          nn.Upsample(scale_factor=2, mode='nearest'), nn.Conv2d(n_feats, n_feats, 3, 1, padding=1)])
-        self.fpn_output4 = nn.Sequential(*[nn.Upsample(scale_factor=2, mode='nearest'), nn.Conv2d(n_feats, n_feats, 3, 1, padding=1)])
-        self.fpn_output5 = nn.Sequential(*[nn.Conv2d(n_feats, n_feats, 3, 1, padding=1)])
-
-
-    def forward(self, x):
-        x = self.resnet.feature_extract(x)
-
-        features = []
-        feature = self.fpn_lateral5(x[3])
-        features.append(feature)
-        
-        top_down_features = F.interpolate(feature, scale_factor=2, mode="nearest")
-        lateral_features = self.fpn_lateral4(x[2])
-        feature = lateral_features + top_down_features
-        features.append(feature)
-
-        top_down_features = F.interpolate(feature, scale_factor=2, mode="nearest")
-        lateral_features = self.fpn_lateral3(x[1])
-        feature = lateral_features + top_down_features
-        features.append(feature)
-
-        top_down_features = F.interpolate(feature, scale_factor=2, mode="nearest")
-        lateral_features = self.fpn_lateral2(x[0])
-        feature = lateral_features + top_down_features
-        features.append(feature)
-
-        x1 = self.fpn_output2(features[0])
-        x2 = self.fpn_output3(features[1])
-        x3 = self.fpn_output4(features[2])
-        x4 = self.fpn_output5(features[3])
-
-        x = torch.cat([x1, x2, x3, x4], 1)
-        return x
+from human_models import smpl, coco
 
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.projection_head = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
+        self.projection_head_1 = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
+        self.projection_head_2 = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
     def forward(self, x):
-        x = self.projection_head(x)
-        return x
+        x1 = self.projection_head_1(x)
+        x2 = self.projection_head_2(x)
+        return x1, x2
     
 class HeatmapPredictor(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
@@ -117,8 +65,9 @@ class Predictor(nn.Module):
         pose = torch.cat([root_pose,pose], dim=-1)
         return pose, shape, cam_trans
 
+
 class BodyPredictor(nn.Module):
-    def __init__(self, in_dim, hidden_dim, pose_feat_dim, shape_feat_dim, img_feat_shape, pos_enc=False):
+    def __init__(self, in_dim, hidden_dim_1, hidden_dim_2, shape_feat_dim, img_feat_shape, pos_enc=False):
         super().__init__()
         self.img_feat_shape = img_feat_shape
         self.pos_enc = pos_enc
@@ -126,13 +75,14 @@ class BodyPredictor(nn.Module):
         if pos_enc:
             in_dim += 2
             
-        self.conv = make_conv_layers([in_dim, hidden_dim, hidden_dim], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
-        self.atten_conv = make_conv_layers([hidden_dim, hidden_dim, smpl.joint_num], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
+        self.conv = make_conv_layers([in_dim, hidden_dim_1, hidden_dim_1], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
+        
+        self.atten_conv = make_conv_layers([hidden_dim_1, hidden_dim_2, hidden_dim_2], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
+        self.smpl_conv = make_conv_layers([hidden_dim_1, hidden_dim_2, hidden_dim_2], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
+        self.shape_cam_conv = make_conv_layers([hidden_dim_2, shape_feat_dim], kernel=1, padding=0, use_bn=False)
 
-        self.smpl_conv = make_conv_layers([hidden_dim, hidden_dim, pose_feat_dim], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
-        self.shape_cam_conv = make_conv_layers([pose_feat_dim, shape_feat_dim], kernel=1, padding=0, use_bn=False)
-
-        self.pose_out = LocallyConnected2d(in_channels=pose_feat_dim, out_channels=6,  output_size=[smpl.joint_num, 1], kernel_size=1, stride=1)
+        self.atten_final_conv = make_conv_layers([hidden_dim_2, smpl.joint_num], kernel=1, padding=0, use_bn=False, bnrelu_final=False)
+        self.pose_out = LocallyConnected2d(in_channels=hidden_dim_2, out_channels=6,  output_size=[smpl.joint_num, 1], kernel_size=1, stride=1)
         self.shape_out = make_linear_layers([shape_feat_dim*smpl.joint_num,smpl.shape_param_dim], relu_final=False)
         self.cam_out = make_linear_layers([shape_feat_dim*smpl.joint_num,3], relu_final=False)
 
@@ -145,14 +95,13 @@ class BodyPredictor(nn.Module):
             self.register_buffer('positional_encoding', positional_encoding)
 
     def forward(self, x):
-        batch_size = x.shape[0]
-
         if self.pos_enc:
             positional_encoding = torch.repeat_interleave(self.positional_encoding[None,...], x.shape[0], dim=0)
             x = torch.cat([x, positional_encoding], dim=1)
         
         x = self.conv(x)
         atten_map = self.atten_conv(x)
+        atten_map = self.atten_final_conv(atten_map)        
         
         pose_feat = self.smpl_conv(x)
         shape_cam_feat = self.shape_cam_conv(pose_feat)

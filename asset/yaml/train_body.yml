@@ -1,7 +1,7 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
     train_list: ['Human36M', 'MSCOCO']   
-    train_partition: [0.5, 0.5] 
+    train_partition:    
     # PW3D  
     test_list: ['PW3D']   
     make_same_len: True    
@@ -11,19 +11,19 @@ MODEL:
     # 'contrastive', 'body', 'hand', '2d_joint'
     type: 'body'
     # 'resnet50', 'hrnetw32'
-    backbone: 'hrnetw32'
+    backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/pretrained_hrnetw32_mscoco/checkpoints/final.pth.tar'
+    weight_path: 'experiment/exp_02-07_02:42/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
     predictor_hidden_dim: 256
 
 TRAIN:
     # 'posecontrast', 'pose', 'cls'
-    pretrained_model_type: 'cls'
-    transfer_backbone: False
+    pretrained_model_type: 'posecontrast'
+    transfer_backbone: True
     freeze_backbone: False
     batch_size: 48
-    shuffle: True 
+    shuffle: True  
     begin_epoch: 1
     end_epoch: 10
     optimizer: 'adam'

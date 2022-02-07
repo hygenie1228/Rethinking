@@ -1,6 +1,9 @@
 import logging
 import os
 
+import warnings
+warnings.filterwarnings("ignore")
+
 from core.config import cfg
 
 OK = '\033[92m'

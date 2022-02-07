@@ -4,7 +4,7 @@ from torch.nn import functional as F
 import math
 import copy
 
-from models import PoseResNet, ResNetFPN, PoseHighResolutionNet, Projector, Predictor, BodyPredictor, HeatmapPredictor
+from models import PoseResNet, PoseHighResolutionNet, Projector, Predictor, BodyPredictor, HeatmapPredictor
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
@@ -45,10 +45,12 @@ class Model(nn.Module):
         joint_feat = self.sampling_joint_feature(img_feat, joints, joints_valid)
         joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 
-        joint_embedding = self.head(joint_feat)
-        joint_embedding = F.normalize(joint_embedding, dim=1)
-        joint_embedding = joint_embedding.reshape(batch_size, -1, joint_embedding.shape[-1])
-        return joint_embedding
+        joint_feat_1, joint_feat_2 = self.head(joint_feat)
+        joint_feat_1 = F.normalize(joint_feat_1, dim=1)
+        joint_feat_1 = joint_feat_1.reshape(batch_size, -1, joint_feat_1.shape[-1])
+        joint_feat_2 = F.normalize(joint_feat_2, dim=1)
+        joint_feat_2 = joint_feat_2.reshape(batch_size, -1, joint_feat_2.shape[-1])
+        return joint_feat_1, joint_feat_2
 
 
     def forward_2d_joint(self, inp_img):
@@ -166,7 +168,9 @@ def get_model(is_train):
     
     
     if is_train:
-        if cfg.TRAIN.pretrained_model_type is 'posecontrast' or cfg.TRAIN.transfer_backbone:
+        if not cfg.TRAIN.transfer_backbone:
+            backbone.init_weights('')
+        elif cfg.TRAIN.pretrained_model_type is 'posecontrast':
             backbone.init_weights('')
         else: 
             logger.info(f'==> Pretrained type: {cfg.TRAIN.pretrained_model_type.upper()}')

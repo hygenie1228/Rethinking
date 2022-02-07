@@ -48,18 +48,23 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
             is_best = tester.pa_mpjpe < min(trainer.error_history['pa_mpjpe'])
 
     tester.save_history(trainer.loss_history, trainer.error_history, epoch) 
-        
-    save_checkpoint({
-        'epoch': epoch,
-        'model_state_dict': check_data_parallel(trainer.model.state_dict()),
-        'optim_state_dict': trainer.optimizer.state_dict(),
-        'scheduler_state_dict': trainer.lr_scheduler.state_dict(),
-        'train_log': trainer.loss_history,
-        'test_log': trainer.error_history
-    }, epoch, is_best)
     
-    
-    
-
-
-
+    if cfg.MODEL.type == 'contrastive':
+        if epoch%10 == 0:
+            save_checkpoint({
+                'epoch': epoch,
+                'model_state_dict': check_data_parallel(trainer.model.state_dict()),
+                'optim_state_dict': trainer.optimizer.state_dict(),
+                'scheduler_state_dict': trainer.lr_scheduler.state_dict(),
+                'train_log': trainer.loss_history,
+                'test_log': trainer.error_history
+            }, epoch, is_best)
+    else:
+        save_checkpoint({
+            'epoch': epoch,
+            'model_state_dict': check_data_parallel(trainer.model.state_dict()),
+            'optim_state_dict': trainer.optimizer.state_dict(),
+            'scheduler_state_dict': trainer.lr_scheduler.state_dict(),
+            'train_log': trainer.loss_history,
+            'test_log': trainer.error_history
+        }, epoch, is_best)

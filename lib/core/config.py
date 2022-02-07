@@ -6,13 +6,11 @@ import yaml
 from easydict import EasyDict as edict
 import datetime
 
-
 def init_dirs(dir_list):
     for dir in dir_list:
         if os.path.exists(dir) and os.path.isdir(dir):
             shutil.rmtree(dir)
         os.mkdir(dir)
-
 
 cfg = edict()
 
@@ -67,14 +65,17 @@ cfg.TRAIN.batch_size = 8
 cfg.TRAIN.shuffle = True
 cfg.TRAIN.begin_epoch = 1
 cfg.TRAIN.end_epoch = 30
+cfg.TRAIN.warmup_epoch = 3
 cfg.TRAIN.scheduler = 'step'
 cfg.TRAIN.lr = 1e-3
+cfg.TRAIN.min_lr = 1e-6
 cfg.TRAIN.lr_step = [20]
 cfg.TRAIN.lr_factor = 0.1
 cfg.TRAIN.optimizer = 'rmsprop'
 cfg.TRAIN.print_freq = 10
 cfg.TRAIN.non_joints_num = 24
 cfg.TRAIN.heatmap_sigma = 10
+cfg.TRAIN.temperature = 0.5
 cfg.TRAIN.use_pseudo_GT = False
 cfg.TRAIN.vis = False
 
@@ -91,6 +92,7 @@ cfg.AUG = edict()
 cfg.AUG.scale_factor = 0
 cfg.AUG.rot_factor = 0
 cfg.AUG.color_factor = 0
+cfg.AUG.blur_factor = 0
 cfg.AUG.flip = False
 
 """ Test Detail """

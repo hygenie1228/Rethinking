@@ -19,7 +19,7 @@ from coord_utils import heatmap_to_coords
 from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
 from eval_utils import eval_mpjpe, eval_pa_mpjpe, eval_2d_joint_accuracy
 from vis_utils import save_plot
-from human_models import smpl
+from human_models import smpl, coco
 
 
 def get_dataloader(dataset_names, is_train):
@@ -38,6 +38,9 @@ def get_dataloader(dataset_names, is_train):
         dataset = eval(f'{name}.dataset')(transform, dataset_split.lower())
         logger.info(f"# of {dataset_split} {name} data: {len(dataset)}")
         dataset_list.append(dataset)
+    
+    def worker_init_fn(worder_id):
+        np.random.seed(np.random.get_state()[1][0] + worder_id)
 
     if not is_train:
         for dataset in dataset_list:
@@ -46,14 +49,15 @@ def get_dataloader(dataset_names, is_train):
                                 shuffle=cfg[dataset_split].shuffle,
                                 num_workers=cfg.DATASET.workers,
                                 pin_memory=True,
-                                drop_last=False)
+                                drop_last=False,
+                                worker_init_fn=worker_init_fn)
             dataloader_list.append(dataloader)
         
         return dataset_list, dataloader_list
     else:
         trainset_loader = MultipleDatasets(dataset_list, partition=cfg.DATASET.train_partition, make_same_len=cfg.DATASET.make_same_len)
         batch_generator = DataLoader(dataset=trainset_loader, batch_size=batch_per_dataset * len(dataset_names), shuffle=cfg[dataset_split].shuffle,
-                                     num_workers=cfg.DATASET.workers, pin_memory=True, drop_last=True)
+                                     num_workers=cfg.DATASET.workers, pin_memory=True, drop_last=True, worker_init_fn=worker_init_fn)
         return dataset_list, batch_generator
 
 
@@ -69,7 +73,7 @@ def prepare_network(args, load_dir='', is_train=True):
         logger.info(f"==> Loading checkpoint: {load_dir}")
         checkpoint = load_checkpoint(load_dir=load_dir)
         model.load_state_dict(checkpoint['model_state_dict'])
-    elif load_dir and cfg.TRAIN.transfer_backbone and is_train:
+    elif load_dir and is_train and cfg.TRAIN.transfer_backbone and (cfg.TRAIN.pretrained_model_type == 'posecontrast'):
         logger.info(f"==> Transfer from checkpoint: {load_dir}")
         checkpoint = load_checkpoint(load_dir=load_dir)
         transfer_backbone(model, checkpoint['model_state_dict'])
@@ -146,7 +150,7 @@ class Trainer:
 
     def train_contrastive(self, epoch):
         self.model.train()
-        lr = self.lr_scheduler.get_last_lr()[0]
+        lr = self.lr_scheduler.get_lr()[0]
 
         running_loss = 0.0
         running_inter_joint_loss = 0.0
@@ -162,17 +166,22 @@ class Trainer:
             joint_img = torch.cat([joint_img_1, joint_img_2])
             joint_valid = torch.cat([joint_valid_1, joint_valid_2])
             
-            features = self.model(inp_img, joint_img, joint_valid)
-            
+            features_1, features_2 = self.model(inp_img, joint_img, joint_valid)
+
             batch_size = inp_img_1.shape[0]
-            features = torch.stack([features[:batch_size],features[batch_size:]])
-            features = features.permute(1,2,0,3)
+            features_1 = torch.stack([features_1[:batch_size],features_1[batch_size:]])
+            features_1 = features_1.permute(1,2,0,3).contiguous()
+            features_2 = torch.stack([features_2[:batch_size],features_2[batch_size:]])
+            features_2 = features_2.permute(1,2,0,3).contiguous()
             joint_valid = joint_valid_1
             
             # features: [bs, joint_num+non_joint_num, n_views, feat_dim]
             # joint_valid: [bs, joint_num+non_joint_num]
-            loss1 = self.inter_joint_loss_weight*self.loss['inter_joint'](features, joint_valid)
-            loss2 = self.intra_joint_loss_weight*self.loss['intra_joint'](features, joint_valid)
+            if epoch > 40:
+                loss1 = self.inter_joint_loss_weight*self.loss['img_cont'](features_1, joint_valid)
+            else:
+                loss1 = torch.tensor(0).cuda()
+            loss2 = self.intra_joint_loss_weight*self.loss['j2j'](features_2, joint_valid)
             loss = loss1 + loss2
             
             # update weights
@@ -187,11 +196,11 @@ class Trainer:
             running_intra_joint_loss += float(loss2.item())
 
             if i % self.print_freq == 0:
-                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr} => '
+                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr:.1E} => '
                                                 f'inter loss: {loss1:.4f} intra loss: {loss2:.4f} ')
             
             # visualize
-            if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_keypoints
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
@@ -201,7 +210,7 @@ class Trainer:
 
                 tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), smpl.skeleton)
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_1.png'), tmp_img)
                 
                 tmp_img = vis_keypoints(img, tar_joint_img[0][tar_joint_valid[0] == -1])
@@ -213,7 +222,7 @@ class Trainer:
                 
                 tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), smpl.skeleton)
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_2.png'), tmp_img)
                 
                 tmp_img = vis_keypoints(img, tar_joint_img[0][tar_joint_valid[0] == -1])
@@ -228,7 +237,7 @@ class Trainer:
         
     def train_2d_joint(self, epoch):
         self.model.train()
-        lr = self.lr_scheduler.get_last_lr()[0]
+        lr = self.lr_scheduler.get_lr()[0]
 
         running_loss = 0.0
         running_hm_loss = 0.0
@@ -296,7 +305,7 @@ class Trainer:
         
     def train_body(self, epoch):
         self.model.train()
-        lr = self.lr_scheduler.get_last_lr()[0]
+        lr = self.lr_scheduler.get_lr()[0]
 
         running_loss = 0.0
         running_joint_loss = 0.0
@@ -555,7 +564,7 @@ class Tester:
     def save_history(self, loss_history, error_history, epoch):
         if cfg.MODEL.type == 'contrastive':
             save_plot(loss_history['inter_joint_loss'], epoch, title='Inter Joint Loss')
-            save_plot(loss_history['inter_joint_loss'], epoch, title='Intra Joint Loss')
+            save_plot(loss_history['intra_joint_loss'], epoch, title='Intra Joint Loss')
         
         elif cfg.MODEL.type == 'body':
             error_history['mpjpe'].append(self.mpjpe)
