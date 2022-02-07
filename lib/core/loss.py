@@ -234,21 +234,9 @@ class ImageContrastiveLoss(nn.Module):
         self.temperature = temperature
         self.criterion = SupConLoss()
 
-    def forward(self, output, target):
-        batch_size, joint_num, n_view, feat_dim = output.shape 
-        
-        loss = 0
-        valid_size = 0
-        for i in range(batch_size):
-            feature = output[i,:,:,:]
-            valid = (target[i,:] != 0)
-            feature = feature[valid]
-            if len(feature) == 0: continue
-            else:
-                loss += self.criterion(feature)
-                valid_size += 1
-                
-        loss /= valid_size
+    def forward(self, output):
+
+        loss = self.criterion(output)
         return loss
 
 
@@ -371,12 +359,9 @@ class ContrastiveLoss(nn.Module):
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
-        loss['joint'] = CoordLoss(has_valid=True)
-        #loss['j2j'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
-        #loss['intra_joint'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
-        loss['j2j'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
-        loss['img_cont'] = JointContrastiveLoss(temperature=cfg.TRAIN.temperature)
-        loss['hm'] = HeatmapMSELoss(has_valid=True)
+        loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
+        loss['img_cont'] = ImageContrastiveLoss(temperature=0.5)
+
     elif cfg.MODEL.type == '2d_contrast':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
         loss['contrast'] = JointContrastiveLoss()

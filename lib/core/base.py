@@ -159,28 +159,27 @@ class Trainer:
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
             inp_img_1, inp_img_2 = batch['img'][0].cuda(), batch['img'][1].cuda()
-            tar_joint_img_1, tar_joint_img_2 = batch['joint_img'][0].cuda(), batch['joint_img'][1].cuda()
-            joint_valid_1, joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
+            meta_hm_1, meta_hm_2 = batch['hm'][0].cuda(), batch['hm'][1].cuda()
+            meta_joint_valid_1, meta_joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
             
             inp_img = torch.cat([inp_img_1, inp_img_2])
-            tar_joint_img = torch.cat([tar_joint_img_1, tar_joint_img_1])
-            joint_valid = torch.cat([joint_valid_1, joint_valid_2])
+            meta_hm = torch.cat([meta_hm_1, meta_hm_2])
+            meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
             
-            pred_joint_img, proj_feat = self.model(inp_img, tar_joint_img, joint_valid)
+            joint_feat, human_feat = self.model(inp_img, meta_hm, meta_joint_valid)
 
             batch_size = inp_img_1.shape[0]
-            proj_feat = torch.stack([proj_feat[:batch_size],proj_feat[batch_size:]])
-            proj_feat = proj_feat.permute(1,2,0,3)
-            
-            # features: [bs, joint_num, n_views, feat_dim]
+            joint_feat = torch.stack([joint_feat[:batch_size],joint_feat[batch_size:]])
+            joint_feat = joint_feat.permute(1,2,0,3).contiguous()
+            human_feat = torch.stack([human_feat[:batch_size],human_feat[batch_size:]])
+            human_feat = human_feat.permute(1,0,2).contiguous()
+            meta_joint_valid = meta_joint_valid_1 * meta_joint_valid_2
+
+            # joint_feat: [bs, joint_num, n_views, feat_dim]
+            # human_feat: [bs, joint_num, n_views, feat_dim]
             # joint_valid: [bs, joint_num]
-            loss1 = self.inter_joint_loss_weight*self.loss['joint'](pred_joint_img, tar_joint_img, joint_valid)
-            
-            if epoch > 40:
-                joint_valid = joint_valid_1 * joint_valid_2
-                loss2 = self.intra_joint_loss_weight*self.loss['img_cont'](proj_feat, joint_valid)
-            else:
-                loss2 = torch.tensor(0).cuda()
+            loss1 = self.inter_joint_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
+            loss2 = self.intra_joint_loss_weight*self.loss['img_cont'](human_feat)
             
             loss = loss1 + loss2
             
@@ -197,41 +196,40 @@ class Trainer:
 
             if i % self.print_freq == 0:
                 batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr:.1E} => '
-                                                f'inter loss: {loss1:.4f} intra loss: {loss2:.4f} ')
+                                                f'joint_cont loss: {loss1:.4f} img_cont loss: {loss2:.4f} ')
             
             # visualize
             if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
                 import cv2
-                from vis_utils import vis_keypoints_with_skeleton, vis_keypoints
+                from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                 img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
-                pred_joint_img = pred_joint_img.detach().cpu().numpy()
-                tar_joint_img, tar_joint_valid = tar_joint_img_1.cpu().numpy(), joint_valid_1.cpu().numpy()
-
-                pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-
-                tmp_img = vis_keypoints_with_skeleton(img, pred_joint_img[0], coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_1_pred.png'), tmp_img)
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_1_gt.png'), tmp_img)
                 
+                joint_img, _ = heatmap_to_coords(meta_hm.cpu().detach().numpy())
+                joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
+                joint_valid = meta_joint_valid.cpu().detach().numpy()
+
+                img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                img = np.ascontiguousarray(img, dtype=np.uint8)
+                tmp_hm = meta_hm_1[0].cpu().numpy()
+                tmp_img = vis_heatmaps(img[None,...], tmp_hm[None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_1.png'), tmp_img)
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[0],joint_valid[0,:, None]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_1.png'), tmp_img)
+
                 img = inv_normalize(inp_img_2[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
-                tar_joint_img, tar_joint_valid = tar_joint_img_2.cpu().numpy(), joint_valid_2.cpu().numpy()
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[batch_size],joint_valid[0,:, None]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_2.png'), tmp_img)
                 
-                tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
+                tmp_hm = meta_hm_2[0].cpu().numpy()
+                tmp_img = vis_heatmaps(img[None,...], tmp_hm[None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_2.png'), tmp_img)
 
-                tmp_img = vis_keypoints_with_skeleton(img, pred_joint_img[batch_size], coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_2_pred.png'), tmp_img)
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:,None]],1), coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_2_gt.png'), tmp_img)
-                
-
+            
         self.loss_history['total_loss'].append(running_loss / len(batch_generator))
         self.loss_history['inter_joint_loss'].append(running_inter_joint_loss / len(batch_generator))
         self.loss_history['intra_joint_loss'].append(running_intra_joint_loss / len(batch_generator))        

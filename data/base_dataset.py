@@ -57,47 +57,48 @@ class BaseDataset(Dataset):
         if do_flip: joint_valid_1 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         else: joint_valid_1 = joint_valid
         
+        hm_1, joint_valid_1 = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape, sigma=cfg.TRAIN.heatmap_sigma)
+
         img_2, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
         joint_img_2 = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
         if do_flip: joint_valid_2 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         else: joint_valid_2 = joint_valid
             
+        hm_2, joint_valid_2 = generate_joint_heatmap(joint_img_2, joint_valid_2, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape, sigma=cfg.TRAIN.heatmap_sigma)
+
         # debug
         '''
         img_1 = img_1[:,:,::-1]
         cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_img_1.png'), img_1)
+        tmp_hm = hm_1
+        tmp_hm[joint_valid_1>0] /= tmp_hm.max((1,2))[joint_valid_1>0][:,None,None]
+        tmp_img = vis_heatmaps(img_1[None,...], tmp_hm[None,...])
+        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_hm_1.png'), tmp_img)
         tmp_img = vis_keypoints_with_skeleton(img_1, np.concatenate([joint_img_1,joint_valid_1[:,None]],1), self.joint_set['skeleton'])
         cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joints_1.png'), tmp_img)
         
         img_2 = img_2[:,:,::-1]
         cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_img_2.png'), img_2)
+        tmp_hm = hm_2
+        tmp_hm[joint_valid_2>0] /= tmp_hm.max((1,2))[joint_valid_2>0][:,None,None]
+        tmp_img = vis_heatmaps(img_1[None,...], tmp_hm[None,...])
+        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_hm_2.png'), tmp_img)
         tmp_img = vis_keypoints_with_skeleton(img_2, np.concatenate([joint_img_2,joint_valid_2[:,None]],1), self.joint_set['skeleton'])
-        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joints_2.png'), tmp_img)     
+        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joints_2.png'), tmp_img) 
         '''
 
         img_1 = self.transform(img_1.astype(np.float32))
         img_2 = self.transform(img_2.astype(np.float32))
         
         # convert joint set
-        joint_img_1 = transform_joint_to_other_db(joint_img_1, self.joint_set['joints_name'], coco.joints_name)
-        joint_img_2 = transform_joint_to_other_db(joint_img_2, self.joint_set['joints_name'], coco.joints_name)
+        hm_1 = transform_joint_to_other_db(hm_1, self.joint_set['joints_name'], coco.joints_name)
+        hm_2 = transform_joint_to_other_db(hm_2, self.joint_set['joints_name'], coco.joints_name)
         joint_valid_1 = transform_joint_to_other_db(joint_valid_1, self.joint_set['joints_name'], coco.joints_name)
         joint_valid_2 = transform_joint_to_other_db(joint_valid_2, self.joint_set['joints_name'], coco.joints_name)
         
-        # remove joints outside image
-        non_joint_valid = np.ones((cfg.TRAIN.non_joints_num,)) * -1
-        joint_valid_1 = image_bound_check(joint_img_1, cfg.MODEL.input_img_shape, joint_valid_1)
-        joint_valid_2 = image_bound_check(joint_img_2, cfg.MODEL.input_img_shape, joint_valid_2)
-        
-        joint_img_1[:,0] *= cfg.MODEL.img_feat_shape[1] / cfg.MODEL.input_img_shape[1]
-        joint_img_1[:,1] *= cfg.MODEL.img_feat_shape[0] / cfg.MODEL.input_img_shape[0]
-        joint_img_2[:,0] *= cfg.MODEL.img_feat_shape[1] / cfg.MODEL.input_img_shape[1]
-        joint_img_2[:,1] *= cfg.MODEL.img_feat_shape[0] / cfg.MODEL.input_img_shape[0]
-        joint_img_1, joint_img_2 = joint_img_1.astype(np.float32), joint_img_2.astype(np.float32)
-        
         batch = {
             'img': [img_1, img_2],
-            'joint_img': [joint_img_1, joint_img_2],
+            'hm': [hm_1, hm_2],
             'joint_valid': [joint_valid_1, joint_valid_2]
         }
         

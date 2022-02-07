@@ -9,41 +9,29 @@ from human_models import smpl, coco
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.head = make_conv_layers([in_dim, hidden_dim, coco.joint_num], kernel=1, padding=0, use_bn=False)
-        self.projection_head = nn.Sequential(
-            nn.Linear(in_dim, hidden_dim, bias=True),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, out_dim, bias=False),
-        )
 
-    def forward2(self, img_feat):
-        heatmap = self.head(img_feat)
+        self.joint_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
-        batch_size, joint_num, height, width = heatmap.shape
-        heatmap = heatmap.reshape((batch_size, -1, height*width))
-        heatmap = F.softmax(heatmap, 2)
-        heatmap = heatmap.reshape((batch_size, -1, height, width))
+        self.human_attention = make_linear_layers([coco.joint_num, coco.joint_num], relu_final=False)
+        self.human_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
-        proj_feat = img_feat[:,None,:,:,:] * heatmap[:,:,None,:,:]
-        proj_feat = proj_feat.sum((3,4))
-        proj_feat = proj_feat.view(batch_size*joint_num, -1)
+    def forward(self, joint_feat, joint_valid):
+        batch_size, joint_num, _ = joint_feat.shape
 
-        proj_feat = self.projection_head(proj_feat)
-        proj_feat = F.normalize(proj_feat, dim=1)
-        proj_feat = proj_feat.reshape(batch_size, joint_num, -1)
+        atten = self.human_attention(joint_valid)
+        human_feat = (atten[:,:,None] * joint_feat).sum(1)
 
-        return heatmap, proj_feat
+        joint_feat = joint_feat.view(batch_size*joint_num, -1)
 
-    def forward(self, img_feat, joint_feat):
-        heatmap = self.head(img_feat)
-        proj_feat = self.projection_head(joint_feat)
+        joint_feat = self.joint_projection(joint_feat)
+        human_feat = self.human_projection(human_feat)
 
-        bs, _, h, w = heatmap.shape
-        heatmap = heatmap.reshape((bs, -1, h*w))
-        heatmap = F.softmax(heatmap, 2)
-        heatmap = heatmap.reshape((bs, -1, h, w))
-        return heatmap, proj_feat
+        joint_feat = F.normalize(joint_feat, dim=1)
+        human_feat = F.normalize(human_feat, dim=1)
+
+        joint_feat = joint_feat.view(batch_size, joint_num, -1)
+        return joint_feat, human_feat
+
     
 class HeatmapPredictor(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):

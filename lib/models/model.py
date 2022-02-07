@@ -24,9 +24,9 @@ class Model(nn.Module):
             self.trainable_modules = [self.backbone, self.head]
         
 
-    def forward(self, inp_img, joints=None, joints_valid=None):
+    def forward(self, inp_img, meta_hm=None, meta_valid=None):
         if cfg.MODEL.type == 'contrastive':
-            return self.forward_contrastive(inp_img, joints, joints_valid)
+            return self.forward_contrastive(inp_img, meta_hm, meta_valid)
         elif cfg.MODEL.type == '2d_joint':
             return self.forward_2d_joint(inp_img)
         elif cfg.MODEL.type == 'body':
@@ -37,30 +37,19 @@ class Model(nn.Module):
             logger.info('Invalid Model Type!')
             assert 0
 
-    def forward_contrastive2(self, inp_img, joints=None, joints_valid=None):
-        img_feat = self.backbone(inp_img)        
-        heatmap, proj_feat = self.head(img_feat)
-
-        pred_joint_img = soft_argmax_2d(heatmap)
-        
-        return pred_joint_img, proj_feat
-
-    def forward_contrastive(self, inp_img, joints=None, joints_valid=None):
+    def forward_contrastive(self, inp_img, meta_hm, meta_valid):
         img_feat = self.backbone(inp_img)
-        
-        joint_feat = self.sampling_joint_feature(img_feat, joints, joints_valid)
-        batch_size, joint_num, _ = joint_feat.shape
-        joint_feat = joint_feat.reshape(batch_size*joint_num, -1)
 
-        heatmap, proj_feat = self.head(img_feat, joint_feat)
-        
-        proj_feat = F.normalize(proj_feat, dim=1)
-        proj_feat = proj_feat.reshape(batch_size, joint_num, -1)
+        # hm normalization
+        meta_hm = meta_hm.clone()
+        hm_valid = (meta_hm.sum((2,3)) > 0)
+        meta_hm[hm_valid] /= meta_hm.sum((2,3))[hm_valid][:,None,None]
 
-        pred_joint_img = soft_argmax_2d(heatmap)
-        
-        return pred_joint_img, proj_feat
+        joint_feat = img_feat[:,None,:,:,:] * meta_hm[:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
 
+        joint_feat, human_feat = self.head(joint_feat, meta_valid)
+        return joint_feat, human_feat
 
     def forward_2d_joint(self, inp_img):
         batch_size = inp_img.shape[0]
