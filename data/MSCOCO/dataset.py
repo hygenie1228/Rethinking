@@ -40,7 +40,6 @@ class MSCOCO(BaseDataset):
             'skeleton': ((1, 2), (0, 1), (0, 2), (2, 4), (1, 3), (6, 8), (8, 10), (5, 7), (7, 9), (12, 14), (14, 16), (11, 13), (13, 15), (17, 11), (17, 12), (17, 18), (18, 5), (18, 6), (18, 0))
         }
         
-        self.valid_joints = [5,6,7,8,9,10,11,12,13,14,15,16]
         self.has_joint_cam = False
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
         
@@ -48,9 +47,11 @@ class MSCOCO(BaseDataset):
         
     def load_data(self):
         if self.data_split == 'train':
-            db = COCO(osp.join(self.annot_path, 'person_keypoints_train2017.json'))
+            #db = COCO(osp.join(self.annot_path, 'person_keypoints_train2017.json'))
+            db = COCO(osp.join(self.annot_path, 'coco_wholebody_train_v1.0.json'))
         else:
-            db = COCO(osp.join(self.annot_path, 'person_keypoints_val2017.json'))
+            #db = COCO(osp.join(self.annot_path, 'person_keypoints_val2017.json'))
+            db = COCO(osp.join(self.annot_path, 'coco_wholebody_val_v1.0.json'))
             
         if self.has_smpl_param:
             if self.data_split == 'train':
@@ -75,10 +76,6 @@ class MSCOCO(BaseDataset):
             joint_img = np.array(ann['keypoints'], dtype=np.float32).reshape(-1,3)
             joint_valid = (joint_img[:,2].copy().reshape(-1) > 0).astype(np.float32)
             joint_img = joint_img[:, :2]
-
-            # remove images having too few joints
-            if self.data_split == 'train':
-                if joint_valid[self.valid_joints].sum() < 8: continue
 
             # pre-processing joint_img
             joint_img, joint_valid = add_pelvis_and_neck(joint_img, joint_valid, self.joint_set['joints_name'])
