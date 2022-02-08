@@ -9,16 +9,17 @@ from human_models import smpl, coco
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-
         self.joint_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
-        self.human_attention = make_linear_layers([in_dim, coco.joint_num], relu_final=False)
+        self.atten_conv = torch.nn.Conv1d(in_channels=in_dim, out_channels=1, kernel_size=1)
         self.human_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
-    def forward(self, joint_feat, joint_valid):
+    def forward(self, joint_feat):
         batch_size, joint_num, _ = joint_feat.shape
 
-        atten = self.human_attention(joint_feat)
+        atten_feat = joint_feat.permute(0,2,1)
+        atten = self.atten_conv(atten_feat).squeeze()
+        atten = torch.softmax(atten, dim=1)
         human_feat = (atten[:,:,None] * joint_feat).sum(1)
         
         joint_feat = joint_feat.view(batch_size*joint_num, -1)

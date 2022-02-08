@@ -26,7 +26,7 @@ class Model(nn.Module):
 
     def forward(self, inp_img, meta_hm=None, meta_valid=None):
         if cfg.MODEL.type == 'contrastive':
-            return self.forward_contrastive(inp_img, meta_hm, meta_valid)
+            return self.forward_contrastive(inp_img, meta_hm)
         elif cfg.MODEL.type == '2d_joint':
             return self.forward_2d_joint(inp_img)
         elif cfg.MODEL.type == 'body':
@@ -37,7 +37,7 @@ class Model(nn.Module):
             logger.info('Invalid Model Type!')
             assert 0
 
-    def forward_contrastive(self, inp_img, meta_hm, meta_valid):
+    def forward_contrastive(self, inp_img, meta_hm):
         img_feat = self.backbone(inp_img)
 
         # hm normalization
@@ -48,7 +48,7 @@ class Model(nn.Module):
         joint_feat = img_feat[:,None,:,:,:] * meta_hm[:,:,None,:,:]
         joint_feat = joint_feat.sum((3,4))
 
-        joint_feat, human_feat = self.head(joint_feat, meta_valid)
+        joint_feat, human_feat = self.head(joint_feat)
         return joint_feat, human_feat
 
     def forward_2d_joint(self, inp_img):

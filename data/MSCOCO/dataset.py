@@ -78,7 +78,7 @@ class MSCOCO(BaseDataset):
 
             # remove images having too few joints
             if self.data_split == 'train':
-                if joint_valid[self.valid_joints].sum() < 6: continue
+                if joint_valid[self.valid_joints].sum() < 8: continue
 
             # pre-processing joint_img
             joint_img, joint_valid = add_pelvis_and_neck(joint_img, joint_valid, self.joint_set['joints_name'])
