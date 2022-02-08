@@ -23,12 +23,12 @@ TRAIN:
     batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 80
+    end_epoch: 100
     warmup_epoch: 3
     optimizer: 'adam'
     scheduler: 'cosine'
-    lr: 0.001
-    min_lr: 1.0e-6
+    lr: 0.01
+    min_lr: 1.0e-5
     lr_step: [40, 60]
     lr_factor: 0.1
     print_freq: 10

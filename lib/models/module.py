@@ -12,15 +12,15 @@ class Projector(nn.Module):
 
         self.joint_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
-        self.human_attention = make_linear_layers([coco.joint_num, coco.joint_num], relu_final=False)
+        self.human_attention = make_linear_layers([in_dim, coco.joint_num], relu_final=False)
         self.human_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
 
     def forward(self, joint_feat, joint_valid):
         batch_size, joint_num, _ = joint_feat.shape
 
-        atten = self.human_attention(joint_valid)
+        atten = self.human_attention(joint_feat)
         human_feat = (atten[:,:,None] * joint_feat).sum(1)
-
+        
         joint_feat = joint_feat.view(batch_size*joint_num, -1)
 
         joint_feat = self.joint_projection(joint_feat)
