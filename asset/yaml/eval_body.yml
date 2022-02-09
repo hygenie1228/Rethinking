@@ -1,14 +1,15 @@
 DATASET:
     train_list: []    
     # PW3D  
-    test_list: ['PW3D']               
+    test_list: ['Human36M']               
     workers: 16
 
 MODEL:
     type: 'body'
-    # 'resnet50', 'resnet50fpn', 'hrnetw32'
-    backbone: 'hrnetw32'
-    weight_path: 'experiment/exp3_2/checkpoints/best.pth.tar'
+    # 'resnet50', 'hrnetw32'
+    backbone: 'resnet50'
+    use_upsampling_layer: False
+    weight_path: 'experiment/exp_02-09_14:12/checkpoints/epoch_1.pth.tar'
     input_img_shape: [256, 192]
     predictor_hidden_dim: 256
     

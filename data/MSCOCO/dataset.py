@@ -41,6 +41,7 @@ class MSCOCO(BaseDataset):
         }
         
         self.has_joint_cam = False
+        #self.has_smpl_param = False
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
         
         self.datalist = self.load_data()
