@@ -28,7 +28,8 @@ class BaseDataset(Dataset):
         self.has_smpl_param = False
         
     def __len__(self):
-        return len(self.datalist)
+        return 256
+        #return len(self.datalist)
 
     def __getitem__(self, index):
         if cfg.MODEL.type == 'contrastive':

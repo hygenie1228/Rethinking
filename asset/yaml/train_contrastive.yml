@@ -5,7 +5,7 @@ DATASET:
     test_list: []
     train_partition: [1.0]
     make_same_len: True
-    workers: 0
+    workers: 16
 
 MODEL:
     type: 'contrastive'
@@ -20,26 +20,28 @@ TRAIN:
     # 'pose', 'cls'
     pretrained_model_type: 'cls'
     transfer_backbone: True
-    batch_size: 4
+    batch_size: 128
     shuffle: True
     begin_epoch: 1
-    end_epoch: 30
+    end_epoch: 100
     warmup_epoch: 3
     optimizer: 'adam'
-    scheduler: 'cosine'
+    scheduler: 'step'  #'step', 'cosine'
     lr: 0.001
     min_lr: 1.0e-6
-    lr_step: [40, 60]
+    lr_step: [60, 80]
     lr_factor: 0.1
     print_freq: 10
-    non_joints_num: 12
     heatmap_sigma: 1.0
-    vis: True
+    vis: False
+
+    contrast_loss_weight: 1.0
+    temperature: 0.07
 
 AUG:
     scale_factor: 0.3
     rot_factor: 40
-    shift_factor: 0.0
     color_factor: 0.2
     blur_factor: 0.0
+    shift_factor: 0.0
     flip: True

@@ -360,8 +360,7 @@ def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
-        loss['img_cont'] = ImageContrastiveLoss(temperature=0.1)
-
+        loss['img_cont'] = ImageContrastiveLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == '2d_contrast':
         loss['hm'] = HeatmapMSELoss(has_valid=True)
         loss['contrast'] = JointContrastiveLoss()

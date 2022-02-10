@@ -41,17 +41,14 @@ class MSCOCO(BaseDataset):
         }
         
         self.has_joint_cam = False
-        #self.has_smpl_param = False
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
         
         self.datalist = self.load_data()
         
     def load_data(self):
         if self.data_split == 'train':
-            #db = COCO(osp.join(self.annot_path, 'person_keypoints_train2017.json'))
             db = COCO(osp.join(self.annot_path, 'coco_wholebody_train_v1.0.json'))
         else:
-            #db = COCO(osp.join(self.annot_path, 'person_keypoints_val2017.json'))
             db = COCO(osp.join(self.annot_path, 'coco_wholebody_val_v1.0.json'))
             
         if self.has_smpl_param:

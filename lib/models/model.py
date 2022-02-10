@@ -48,8 +48,15 @@ class Model(nn.Module):
         joint_feat = img_feat[:,None,:,:,:] * meta_hm[:,:,None,:,:]
         joint_feat = joint_feat.sum((3,4))
 
-        joint_feat, human_feat = self.head(joint_feat)
-        return joint_feat, human_feat
+        batch_size, joint_num, _ = joint_feat.shape
+        joint_feat = joint_feat.view(batch_size*joint_num, -1)
+
+        joint_feat = self.head(joint_feat)
+
+        joint_feat = F.normalize(joint_feat, dim=1)
+        joint_feat = joint_feat.view(batch_size, joint_num, -1)
+
+        return joint_feat
 
     def forward_2d_joint(self, inp_img):
         batch_size = inp_img.shape[0]

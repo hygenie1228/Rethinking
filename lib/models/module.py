@@ -9,29 +9,17 @@ from human_models import smpl, coco
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.joint_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
-
-        self.atten_conv = torch.nn.Conv1d(in_channels=in_dim, out_channels=1, kernel_size=1)
-        self.human_projection = make_linear_layers([in_dim, hidden_dim, out_dim], relu_final=False)
-
-    def forward(self, joint_feat):
-        batch_size, joint_num, _ = joint_feat.shape
-
-        atten_feat = joint_feat.permute(0,2,1)
-        atten = self.atten_conv(atten_feat).squeeze()
-        atten = torch.softmax(atten, dim=1)
-        human_feat = (atten[:,:,None] * joint_feat).sum(1)
+        self.projection_head = nn.Sequential(
+            nn.Linear(in_dim, hidden_dim, bias=True),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, out_dim,bias=False)
+        )        
         
-        joint_feat = joint_feat.view(batch_size*joint_num, -1)
 
-        joint_feat = self.joint_projection(joint_feat)
-        human_feat = self.human_projection(human_feat)
-
-        joint_feat = F.normalize(joint_feat, dim=1)
-        human_feat = F.normalize(human_feat, dim=1)
-
-        joint_feat = joint_feat.view(batch_size, joint_num, -1)
-        return joint_feat, human_feat
+    def forward(self, x):
+        x = self.projection_head(x)
+        return x
 
     
 class HeatmapPredictor(nn.Module):

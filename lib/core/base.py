@@ -85,8 +85,8 @@ def prepare_network(args, load_dir='', is_train=True):
 def train_setup(model, checkpoint):    
     criterion, optimizer, lr_scheduler = None, None, None
     if cfg.MODEL.type == 'contrastive':
-        loss_history = {'total_loss': [], 'inter_joint_loss': [], 'intra_joint_loss': []}
-        error_history = {'contrastive_loss': []}
+        loss_history = {'total_loss': [], 'contrast_loss': []}
+        error_history = {}
     elif cfg.MODEL.type == '2d_joint':
         loss_history = {'total_loss': [], 'hm_loss': []}
         error_history = {'pck': []}
@@ -134,8 +134,7 @@ class Trainer:
         
         if cfg.MODEL.type == 'contrastive':
             self.train = self.train_contrastive
-            self.inter_joint_loss_weight = cfg.TRAIN.inter_joint_loss_weight
-            self.intra_joint_loss_weight = cfg.TRAIN.intra_joint_loss_weight
+            self.contrast_loss_weight = cfg.TRAIN.contrast_loss_weight
         elif cfg.MODEL.type == '2d_joint':
             self.train = self.train_2d_joint
         elif cfg.MODEL.type == 'body':
@@ -153,8 +152,7 @@ class Trainer:
         lr = self.lr_scheduler.get_lr()[0]
 
         running_loss = 0.0
-        running_inter_joint_loss = 0.0
-        running_intra_joint_loss = 0.0
+        running_contrast_loss = 0.0
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
@@ -166,22 +164,18 @@ class Trainer:
             meta_hm = torch.cat([meta_hm_1, meta_hm_2])
             meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
             
-            joint_feat, human_feat = self.model(inp_img, meta_hm, meta_joint_valid)
+            joint_feat = self.model(inp_img, meta_hm, meta_joint_valid)
 
             batch_size = inp_img_1.shape[0]
             joint_feat = torch.stack([joint_feat[:batch_size],joint_feat[batch_size:]])
             joint_feat = joint_feat.permute(1,2,0,3).contiguous()
-            human_feat = torch.stack([human_feat[:batch_size],human_feat[batch_size:]])
-            human_feat = human_feat.permute(1,0,2).contiguous()
             meta_joint_valid = meta_joint_valid_1 * meta_joint_valid_2
 
             # joint_feat: [bs, joint_num, n_views, feat_dim]
-            # human_feat: [bs, joint_num, n_views, feat_dim]
             # joint_valid: [bs, joint_num]
-            loss1 = self.inter_joint_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
-            loss2 = self.intra_joint_loss_weight*self.loss['img_cont'](human_feat)
+            loss1 = self.contrast_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
             
-            loss = loss1 + loss2
+            loss = loss1
             
             # update weights
             self.optimizer.zero_grad()
@@ -189,14 +183,13 @@ class Trainer:
             self.optimizer.step()
 
             # log
-            loss, loss1, loss2= loss.detach(), loss1.detach(), loss2.detach()
+            loss, loss1 = loss.detach(), loss1.detach()
             running_loss += float(loss.item())
-            running_inter_joint_loss += float(loss1.item())
-            running_intra_joint_loss += float(loss2.item())
+            running_contrast_loss += float(loss1.item())
 
             if i % self.print_freq == 0:
                 batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr:.1E} => '
-                                                f'joint_cont loss: {loss1:.4f} img_cont loss: {loss2:.4f} ')
+                                                f'joint_cont loss: {loss1:.4f}')
             
             # visualize
             if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
@@ -231,8 +224,7 @@ class Trainer:
 
             
         self.loss_history['total_loss'].append(running_loss / len(batch_generator))
-        self.loss_history['inter_joint_loss'].append(running_inter_joint_loss / len(batch_generator))
-        self.loss_history['intra_joint_loss'].append(running_intra_joint_loss / len(batch_generator))        
+        self.loss_history['contrast_loss'].append(running_contrast_loss / len(batch_generator))  
             
         logger.info(f'Epoch{epoch} Loss: {self.loss_history["total_loss"][-1]:.4f}')
         
@@ -353,7 +345,7 @@ class Trainer:
                                                 f'joint: {loss1:.4f} smpl_joint: {loss2:.4f} proj: {loss3:.4f} pose: {loss4:.4f}, shape: {loss5:.4f}, prior: {loss6:.4f}')
             
             # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//5) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
@@ -564,8 +556,7 @@ class Tester:
 
     def save_history(self, loss_history, error_history, epoch):
         if cfg.MODEL.type == 'contrastive':
-            save_plot(loss_history['inter_joint_loss'], epoch, title='Inter Joint Loss')
-            save_plot(loss_history['intra_joint_loss'], epoch, title='Intra Joint Loss')
+            save_plot(loss_history['contrast_loss'], epoch, title='Contrast Loss')
         
         elif cfg.MODEL.type == 'body':
             error_history['mpjpe'].append(self.mpjpe)
