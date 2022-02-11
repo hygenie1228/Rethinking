@@ -214,12 +214,14 @@ class BaseDataset(Dataset):
             img = self.transform(img.astype(np.float32))
 
             if self.joint_set['name'] == 'Human36M':
+                joint_cam = joint_cam - joint_cam[smpl.h36m_root_joint_idx]
+                joint_cam = joint_cam * 1000
                 mesh_cam = np.zeros((smpl.vertex_num, 3))
                 
             elif self.joint_set['name'] == '3DPW':
                 joint_cam = np.dot(smpl.h36m_joint_regressor, mesh_cam)
-                mesh_cam = mesh_cam - joint_cam[smpl.h36m_root_joint_idx]
                 joint_cam = joint_cam - joint_cam[smpl.h36m_root_joint_idx]
+                mesh_cam = mesh_cam - joint_cam[smpl.h36m_root_joint_idx]
 
                 # meter to milimeter
                 mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
