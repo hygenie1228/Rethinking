@@ -51,7 +51,7 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
 
     tester.save_history(trainer.loss_history, trainer.error_history, epoch) 
     
-    if cfg.MODEL.type == 'contrastive' or cfg.MODEL.type == '2d_joint' or or cfg.DATASET.train_list == ['PW3D']:
+    if cfg.MODEL.type == 'contrastive' or cfg.MODEL.type == '2d_joint' or cfg.DATASET.train_list == ['PW3D']:
         if epoch%10 == 0:
             save_checkpoint({
                 'epoch': epoch,
