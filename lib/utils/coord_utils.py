@@ -32,6 +32,22 @@ def add_pelvis_and_neck(joint_coord, joint_valid, joints_name):
     joint_coord = np.concatenate((joint_coord, pelvis, neck))
     return joint_coord, joint_valid
 
+def flip_back(output_flipped, matched_parts):
+    '''
+    ouput_flipped: numpy.ndarray(batch_size, num_joints, height, width)
+    '''
+    assert output_flipped.ndim == 4,\
+        'output_flipped should be [batch_size, num_joints, height, width]'
+
+    output_flipped = output_flipped[:, :, :, ::-1]
+
+    for pair in matched_parts:
+        tmp = output_flipped[:, pair[0], :, :].copy()
+        output_flipped[:, pair[0], :, :] = output_flipped[:, pair[1], :, :]
+        output_flipped[:, pair[1], :, :] = tmp
+
+    return output_flipped
+
 def get_center_scale(box_info):
         x, y, w, h = box_info
 

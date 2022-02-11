@@ -5,36 +5,41 @@ DATASET:
 
 MODEL:
     type: '2d_joint'
-    # 'resnet50', 'resnet50-fpn', 'hrnet'
+    # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'    
+    use_upsampling_layer: True
     input_img_shape: [256, 192]
-    backbone_out_dim: 256
-    projector_hidden_dim: 1024
-    projector_out_dim: 24
 
-TRAIN:      
-    finetuning: False
+TRAIN:  
+    pretrained_model_type: 'cls'    
+    transfer_backbone: True
+    freeze_backbone: False
     batch_size: 256
-    shuffle: True
+    shuffle: True 
     begin_epoch: 1
-    end_epoch: 50
+    end_epoch: 80
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.001
-    lr_step: [40, 45]
+    min_lr: 1.0e-6
+    lr_step: [50, 70]
     lr_factor: 0.1
     print_freq: 10
+    heatmap_sigma: 2.0
+    vis: False
 
-    inter_joint_loss_weight: 1.0
-    intra_joint_loss_weight: 1.0
+    hm_loss_weight: 1.0
 
 AUG:
-    scale_factor: 0.25
-    rot_factor: 30
+    scale_factor: 0.3
+    rot_factor: 40
     color_factor: 0.2
+    blur_factor: 0.0
+    shift_factor: 0.0
     flip: True
 
 TEST:
-    batch_size: 64
+    batch_size: 32
     shuffle: False
     vis: True
+    vis_freq: 10

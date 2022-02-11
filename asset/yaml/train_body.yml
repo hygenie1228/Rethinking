@@ -1,6 +1,6 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['PW3D', 'MSCOCO']   
+    train_list: ['PW3D']   
     train_partition: [0.5, 0.5]
     # PW3D  
     test_list: ['PW3D']   
@@ -33,7 +33,7 @@ TRAIN:
     lr_factor: 0.1
     print_freq: 10
     use_pseudo_GT: True
-    vis: True
+    vis: False
 
     joint_loss_weight: 1.0
     proj_loss_weight: 0.1

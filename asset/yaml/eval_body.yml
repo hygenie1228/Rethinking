@@ -1,7 +1,7 @@
 DATASET:
     train_list: []    
     # PW3D  
-    test_list: ['Human36M']               
+    test_list: ['PW3D']               
     workers: 16
 
 MODEL:

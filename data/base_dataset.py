@@ -131,9 +131,9 @@ class BaseDataset(Dataset):
         '''
 
         img = self.transform(img.astype(np.float32))
-        joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], smpl.joints_name)
-        hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], smpl.joints_name)
-        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], smpl.joints_name) 
+        joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], coco.joints_name)
+        hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], coco.joints_name)
+        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], coco.joints_name) 
 
         if self.data_split == 'train':
             batch = {
@@ -144,8 +144,8 @@ class BaseDataset(Dataset):
         else:
             batch = {
                 'img': img,
-                'joint_img': joint_img,
-                'joint_valid': joint_valid
+                'hm': hm,
+                'hm_valid': joint_valid
             }
         
         return batch

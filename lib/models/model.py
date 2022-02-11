@@ -9,7 +9,7 @@ from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
 from funcs_utils import sample_image_feature, rot6d_to_axis_angle, soft_argmax_2d
-from human_models import smpl
+from human_models import smpl, coco
 
 class Model(nn.Module):
     def __init__(self, backbone, head):
@@ -163,7 +163,7 @@ def get_model(is_train):
     if cfg.MODEL.type == 'contrastive':
         head = Projector(backbone_out_dim,cfg.MODEL.projector_hidden_dim,cfg.MODEL.projector_out_dim)
     elif cfg.MODEL.type == '2d_joint':
-        head = HeatmapPredictor(backbone_out_dim,cfg.MODEL.predictor_hidden_dim,smpl.joint_num)
+        head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == 'body':
         head = BodyPredictor(backbone_out_dim,cfg.MODEL.predictor_hidden_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim, img_feat_shape=cfg.MODEL.img_feat_shape, pos_enc=True)
     elif cfg.MODEL.type == 'hand':

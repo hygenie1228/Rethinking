@@ -9,10 +9,9 @@ import copy
 from pycocotools.coco import COCO
 
 from core.config import cfg
-from coord_utils import process_bbox
+from coord_utils import process_bbox, add_pelvis_and_neck
 from base_dataset import BaseDataset
 
-from coord_utils import add_pelvis_and_neck
 
 class MSCOCO(BaseDataset):
     def __init__(self, transform, data_split):

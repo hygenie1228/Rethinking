@@ -15,9 +15,9 @@ import MSCOCO.dataset, MPII.dataset, PW3D.dataset, Human36M.dataset, MPI_INF_3DH
 from models import get_model, transfer_backbone
 from multiple_datasets import MultipleDatasets
 from core.loss import get_loss
-from coord_utils import heatmap_to_coords
+from coord_utils import get_max_preds, flip_back
 from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
-from eval_utils import eval_mpjpe, eval_pa_mpjpe, eval_2d_joint_accuracy
+from eval_utils import eval_mpjpe, eval_pa_mpjpe, calc_dists, dist_acc
 from vis_utils import save_plot
 from human_models import smpl, coco
 
@@ -137,6 +137,7 @@ class Trainer:
             self.contrast_loss_weight = cfg.TRAIN.contrast_loss_weight
         elif cfg.MODEL.type == '2d_joint':
             self.train = self.train_2d_joint
+            self.hm_loss_weight = cfg.TRAIN.hm_loss_weight
         elif cfg.MODEL.type == 'body':
             self.train = self.train_body
             self.joint_loss_weight = cfg.TRAIN.joint_loss_weight
@@ -199,7 +200,7 @@ class Trainer:
                 img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
                 
-                joint_img, _ = heatmap_to_coords(meta_hm.cpu().detach().numpy())
+                joint_img, _ = get_max_preds(meta_hm.cpu().detach().numpy())
                 joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
                 joint_valid = meta_joint_valid.cpu().detach().numpy()
@@ -243,7 +244,7 @@ class Trainer:
             
             pred_heatmap = self.model(inp_img)
 
-            loss1 = self.loss['hm'](pred_heatmap, tar_heatmap, meta_hm_valid)
+            loss1 = self.hm_loss_weight * self.loss['hm'](pred_heatmap, tar_heatmap, meta_hm_valid)
             loss = loss1
             
             # update weights
@@ -261,7 +262,7 @@ class Trainer:
                                                 f'hm loss: {loss1:.4f}')
             
             # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//10) == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//4) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 
@@ -273,21 +274,24 @@ class Trainer:
                 tar_heatmap = tar_heatmap.cpu().detach().numpy()
                 meta_hm_valid = meta_hm_valid.cpu().numpy()
 
-                pred_joint_img, pred_joint_valid = heatmap_to_coords(pred_heatmap)
+                pred_joint_img, pred_joint_valid = get_max_preds(pred_heatmap)
                 pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
 
-                tar_joint_img, _ = heatmap_to_coords(tar_heatmap)
+                tar_joint_img, _ = get_max_preds(tar_heatmap)
                 tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
                 
                 tmp_img = vis_heatmaps(img[None,...], pred_heatmap[0, None,...])
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_pred.png'), tmp_img)
 
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:, None]],1), smpl.skeleton)
+                tmp_img = vis_heatmaps(img[None,...], tar_heatmap[0, None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_gt.png'), tmp_img)
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred.png'), tmp_img)
 
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), smpl.skeleton)
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
     
 
@@ -438,48 +442,61 @@ class Tester:
         self.model.eval()
         
         pck = []
+        pck_cnt = []
         
         eval_prefix = f'Epoch{epoch} ' if epoch else ''
         loader = tqdm(self.val_loader)
         with torch.no_grad():
             for i, batch in enumerate(loader):
                 inp_img = batch['img'].cuda()
+                tar_hm = batch['hm'].cuda()
                 batch_size = inp_img.shape[0]
 
                 # feed-forward
-                pred_heatmap = self.model(inp_img)
-                pred_heatmap = pred_heatmap.cpu().numpy()
-                pred_joint_img, pred_joint_valid = heatmap_to_coords(pred_heatmap)
-                pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                tar_joint_img = batch['joint_img'].cpu().numpy()
-                meta_joint_valid = batch['joint_valid'].cpu().numpy()
+                output = self.model(inp_img)
+                
+                input_flipped = inp_img.flip(3)
+                output_flipped = self.model(input_flipped)
 
-                pck_i = self.eval_2d_joint(pred_joint_img, tar_joint_img, meta_joint_valid)
-                
-                pck.extend(pck_i)
-                pck_i = sum(pck_i)/batch_size
-                
+                output_flipped = flip_back(output_flipped.cpu().numpy(), self.val_dataset.joint_set['flip_pairs'])
+                output_flipped = torch.from_numpy(output_flipped.copy()).cuda()
+
+                # feature is not aligned, shift flipped heatmap for higher accuracy
+                output_flipped[:, :, :, 1:] = output_flipped.clone()[:, :, :, 0:-1]
+                output = (output + output_flipped) * 0.5
+
+                acc, avg_acc, cnt, pred = self.eval_2d_accuracy(output, tar_hm)
+                pck.append(avg_acc*cnt)
+                pck_cnt.append(cnt)
+                pck_i = avg_acc
+
                 if i % self.print_freq == 0:
                     loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => PCK: {pck_i:.3f}')
                 
-                if cfg.TEST.vis:
+                if cfg.TEST.vis and (i % self.vis_freq == 0):
                     import cv2
                     from vis_utils import vis_keypoints_with_skeleton
+                    pred_heatmap = output.cpu().numpy()
+                    pred_joint_img, pred_joint_valid = get_max_preds(pred_heatmap)
+                    pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                    pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
+
+                    tar_heatmap = tar_hm.cpu().numpy()
+                    tar_joint_img, tar_joint_valid = get_max_preds(tar_heatmap)
+                    tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                    tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
+
+                    inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
+                    img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                    img = np.ascontiguousarray(img, dtype=np.uint8)
                     
-                    if i % self.vis_freq == 0:
-                        inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                        img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                        img = np.ascontiguousarray(img, dtype=np.uint8)
-                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_img.png'), img)
-                        
-                        tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:, None]],1), smpl.skeleton)
-                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_joint_img_pred.png'), tmp_img)
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
+                    cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_joint_img_pred.png'), tmp_img)
 
-                        tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_joint_valid[0,:, None]],1), smpl.skeleton)
-                        cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:]],1), coco.skeleton)
+                    cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_joint_img_gt.png'), tmp_img)
 
-            self.pck = sum(pck) / self.dataset_length
+            self.pck = sum(pck) / sum(pck_cnt)
             logger.info(f'>> {eval_prefix} PCK: {self.pck:.3f}')
 
 
@@ -577,7 +594,7 @@ class Tester:
         save_plot(loss_history['total_loss'], epoch, title='Total Loss')
         
     
-    def eval_2d_joint(self, pred, target, target_valid):
+    '''def eval_2d_joint(self, pred, target, target_valid):
         pred, target = pred.copy(), target.copy()
         batch_size = pred.shape[0]
         
@@ -587,7 +604,47 @@ class Tester:
             pred_i, target_i = pred_i[target_val_i>0], target_i[target_val_i>0]
             pck.append(eval_2d_joint_accuracy(pred_i[None,...], target_i[None,...], cfg.MODEL.input_img_shape)[1])
             
-        return pck
+        return pck'''
+
+    def eval_2d_accuracy(self, pred, target):
+        '''
+        Calculate accuracy according to PCK,
+        but uses ground truth heatmap rather than x,y locations
+        First value to be returned is average accuracy across 'idxs',
+        followed by individual accuracies
+        '''
+        output = pred[:, coco.eval_joints].cpu().numpy()
+        target = target[:, coco.eval_joints].cpu().numpy()
+        hm_type = 'gaussian'
+        thr = 0.5
+
+        idx = list(range(output.shape[1]))
+        norm = 1.0
+        if hm_type == 'gaussian':
+            pred, _ = get_max_preds(output)
+            target, _ = get_max_preds(target)
+            h = output.shape[2]
+            w = output.shape[3]
+            norm = np.ones((pred.shape[0], 2)) * np.array([h, w]) / 10
+        
+        dists = calc_dists(pred, target, norm)
+
+        acc = np.zeros((len(idx) + 1))
+        avg_acc = 0
+        cnt = 0
+
+        for i in range(len(idx)):
+            acc[i + 1] = dist_acc(dists[idx[i]])
+            if acc[i + 1] >= 0:
+                avg_acc = avg_acc + acc[i + 1]
+                cnt += 1
+
+        avg_acc = avg_acc / cnt if cnt != 0 else 0
+        if cnt != 0:
+            acc[0] = avg_acc
+            
+        return acc, avg_acc, cnt, pred
+
 
 
     def eval_3d_joint(self, pred, target):

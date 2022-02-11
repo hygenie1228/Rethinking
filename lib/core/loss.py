@@ -356,14 +356,41 @@ class ContrastiveLoss(nn.Module):
         logits = logits / self.temperature
         return logits, labels
     
+
+class JointsMSELoss(nn.Module):
+    def __init__(self, use_target_weight):
+        super(JointsMSELoss, self).__init__()
+        self.criterion = nn.MSELoss(reduction='mean')
+        self.use_target_weight = use_target_weight
+
+    def forward(self, output, target, target_weight):
+        batch_size = output.size(0)
+        num_joints = output.size(1)
+        heatmaps_pred = output.reshape((batch_size, num_joints, -1)).split(1, 1)
+        heatmaps_gt = target.reshape((batch_size, num_joints, -1)).split(1, 1)
+        target_weight = target_weight.reshape((batch_size, num_joints, 1))
+        loss = 0
+
+        for idx in range(num_joints):
+            heatmap_pred = heatmaps_pred[idx].squeeze()
+            heatmap_gt = heatmaps_gt[idx].squeeze()
+            if self.use_target_weight:
+                loss += 0.5 * self.criterion(
+                    heatmap_pred.mul(target_weight[:, idx]),
+                    heatmap_gt.mul(target_weight[:, idx])
+                )
+            else:
+                loss += 0.5 * self.criterion(heatmap_pred, heatmap_gt)
+
+        return loss / num_joints
+
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
         loss['img_cont'] = ImageContrastiveLoss(temperature=cfg.TRAIN.temperature)
-    elif cfg.MODEL.type == '2d_contrast':
-        loss['hm'] = HeatmapMSELoss(has_valid=True)
-        loss['contrast'] = JointContrastiveLoss()
+    elif cfg.MODEL.type == '2d_joint':
+        loss['hm'] = JointsMSELoss(use_target_weight=True)
     elif cfg.MODEL.type == 'body':
         loss['joint_cam'] = CoordLoss(has_valid=True)
         loss['smpl_joint_cam'] = CoordLoss(has_valid=True)

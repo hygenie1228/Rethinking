@@ -37,7 +37,9 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
     trainer.lr_scheduler.step()
     
     if len(cfg.DATASET.test_list) > 0:
-        tester.test(epoch, current_model=trainer.model)    
+        if cfg.MODEL.type == '2d_joint':
+            if epoch % 10 == 0: tester.test(epoch, current_model=trainer.model) 
+        else: tester.test(epoch, current_model=trainer.model)    
     
     is_best = None
     if cfg.MODEL.type == '2d_joint':
@@ -49,7 +51,7 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
 
     tester.save_history(trainer.loss_history, trainer.error_history, epoch) 
     
-    if cfg.MODEL.type == 'contrastive':
+    if cfg.MODEL.type == 'contrastive' or cfg.MODEL.type == '2d_joint':
         if epoch%10 == 0:
             save_checkpoint({
                 'epoch': epoch,
