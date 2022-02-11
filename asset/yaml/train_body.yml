@@ -1,9 +1,9 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['PW3D']   
+    train_list: ['MSCOCO', 'Human36M']   
     #train_partition: [1.0]
     # PW3D  
-    test_list: ['PW3D']   
+    test_list: ['Human36M']   
     make_same_len: True    
     workers: 16
 
@@ -18,14 +18,12 @@ MODEL:
     predictor_hidden_dim: 256
 
 TRAIN:
-    # 'posecontrast', 'pose', 'cls'
-    pretrained_model_type: 'posecontrast'
     transfer_backbone: True
     freeze_backbone: False
     batch_size: 48
     shuffle: True 
     begin_epoch: 1
-    end_epoch: 50
+    end_epoch: 10
     optimizer: 'adam'
     scheduler: 'step'
     lr: 1.0e-4

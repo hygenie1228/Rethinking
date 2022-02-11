@@ -11,8 +11,7 @@ MODEL:
     input_img_shape: [256, 192]
 
 TRAIN:  
-    pretrained_model_type: 'cls'    
-    transfer_backbone: True
+    transfer_backbone: False
     freeze_backbone: False
     batch_size: 128
     shuffle: True 

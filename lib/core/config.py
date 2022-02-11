@@ -58,7 +58,6 @@ cfg.MODEL.weight_path = ''
 
 """ Train Detail """
 cfg.TRAIN = edict()
-cfg.TRAIN.pretrained_model_type = 'posecontrast'
 cfg.TRAIN.transfer_backbone = False
 cfg.TRAIN.freeze_backbone = False
 cfg.TRAIN.batch_size = 8

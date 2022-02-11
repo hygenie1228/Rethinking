@@ -12,7 +12,7 @@ from core.config import cfg
 from core.logger import logger
 
 import MSCOCO.dataset, MPII.dataset, PW3D.dataset, Human36M.dataset, MPI_INF_3DHP.dataset
-from models import get_model, transfer_backbone
+from models import get_model
 from multiple_datasets import MultipleDatasets
 from core.loss import get_loss
 from coord_utils import get_max_preds, flip_back
@@ -73,11 +73,6 @@ def prepare_network(args, load_dir='', is_train=True):
         logger.info(f"==> Loading checkpoint: {load_dir}")
         checkpoint = load_checkpoint(load_dir=load_dir)
         model.load_state_dict(checkpoint['model_state_dict'])
-    elif load_dir and is_train and cfg.TRAIN.transfer_backbone and (cfg.TRAIN.pretrained_model_type == 'posecontrast'):
-        logger.info(f"==> Transfer from checkpoint: {load_dir}")
-        checkpoint = load_checkpoint(load_dir=load_dir)
-        transfer_backbone(model, checkpoint['model_state_dict'])
-        checkpoint = None
         
     return model, checkpoint
 

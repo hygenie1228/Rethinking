@@ -8,7 +8,7 @@ from models import PoseResNet, PoseHighResolutionNet, Projector, Predictor, Body
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
-from funcs_utils import sample_image_feature, rot6d_to_axis_angle, soft_argmax_2d
+from funcs_utils import load_checkpoint, sample_image_feature, rot6d_to_axis_angle, soft_argmax_2d
 from human_models import smpl, coco
 
 class Model(nn.Module):
@@ -173,13 +173,11 @@ def get_model(is_train):
     
     
     if is_train:
-        if not cfg.TRAIN.transfer_backbone:
-            backbone.init_weights('')
-        elif cfg.TRAIN.pretrained_model_type is 'posecontrast':
-            backbone.init_weights('')
-        else: 
-            logger.info(f'==> Pretrained type: {cfg.TRAIN.pretrained_model_type.upper()}')
-            backbone.init_weights(cfg.TRAIN.pretrained_model_type)
+        if cfg.TRAIN.transfer_backbone:
+            logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
+            transfer_backbone(backbone, cfg.MODEL.weight_path)
+        else:
+            backbone.init_weights()
             
         head.apply(init_weights)
             
@@ -187,11 +185,14 @@ def get_model(is_train):
     return model
 
 
-def transfer_backbone(model, checkpoint):    
+def transfer_backbone(backbone, weight_path):   
+    checkpoint = load_checkpoint(load_dir=weight_path)
+    checkpoint = checkpoint['model_state_dict']
+
     new_state_dict = OrderedDict()
     for k, v in checkpoint.items():
         if 'backbone' in k:
             name = k.replace('backbone.', '')
             new_state_dict[name] = v
-            
-    model.backbone.load_state_dict(new_state_dict, strict=False)
+
+    backbone.load_state_dict(new_state_dict, strict=False)

@@ -206,13 +206,8 @@ class PoseResNet(nn.Module):
 
         return x
 
-    def init_weights(self, pretrained_type=''):
-        if pretrained_type == 'pose':
-            pretrained = 'data/base_data/backbone_models/pose_resnet_50_256x192.pth'
-        elif pretrained_type == 'cls':
-            pretrained = 'data/base_data/backbone_models/cls_resnet_50_imagenet.pth'
-        else:
-            return
+    def init_weights(self):
+        pretrained = 'data/base_data/backbone_models/cls_resnet_50_imagenet.pth'
 
         if os.path.isfile(pretrained):
             if self.do_upsampling:
