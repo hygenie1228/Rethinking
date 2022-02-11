@@ -14,7 +14,7 @@ TRAIN:
     pretrained_model_type: 'cls'    
     transfer_backbone: True
     freeze_backbone: False
-    batch_size: 256
+    batch_size: 128
     shuffle: True 
     begin_epoch: 1
     end_epoch: 80

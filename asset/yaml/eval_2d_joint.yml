@@ -7,7 +7,7 @@ MODEL:
     type: '2d_joint'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'    
-    weight_path: 'experiment/exp_02-11_02:44/checkpoints/epoch_100.pth.tar'
+    weight_path: 'experiment/pose_pretrained_epoch140/checkpoints/final.pth.tar'
     use_upsampling_layer: True
     input_img_shape: [256, 192]
     

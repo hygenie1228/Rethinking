@@ -1,7 +1,7 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
     train_list: ['PW3D']   
-    train_partition: [0.5, 0.5]
+    #train_partition: [1.0]
     # PW3D  
     test_list: ['PW3D']   
     make_same_len: True    
@@ -13,7 +13,7 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/pretrained_1/checkpoints/final.pth.tar'
+    weight_path: 'experiment/pose_pretrained_epoch140/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
     predictor_hidden_dim: 256
 
@@ -25,7 +25,7 @@ TRAIN:
     batch_size: 48
     shuffle: True 
     begin_epoch: 1
-    end_epoch: 10
+    end_epoch: 50
     optimizer: 'adam'
     scheduler: 'step'
     lr: 1.0e-4
