@@ -154,12 +154,15 @@ def get_model(is_train):
         else: 
             cfg.MODEL.img_feat_shape = (cfg.MODEL.input_img_shape[0]//32, cfg.MODEL.input_img_shape[1]//32)
             backbone_out_dim = 2048
+        pretrained = 'data/base_data/backbone_models/resnet50-19c8e357.pth'
     elif cfg.MODEL.backbone == 'hrnetw32':
         backbone = PoseHighResolutionNet(do_upsampling=cfg.MODEL.use_upsampling_layer)
         cfg.MODEL.img_feat_shape = (cfg.MODEL.input_img_shape[0]//4, cfg.MODEL.input_img_shape[1]//4)
         if cfg.MODEL.use_upsampling_layer: backbone_out_dim = 480
         else: backbone_out_dim = 32
-    
+        pretrained = 'data/base_data/backbone_models/hrnet_w32-36af842e.pth'
+        
+
     if cfg.MODEL.type == 'contrastive':
         head = Projector(backbone_out_dim,cfg.MODEL.projector_hidden_dim,cfg.MODEL.projector_out_dim)
     elif cfg.MODEL.type == '2d_joint':
@@ -177,7 +180,7 @@ def get_model(is_train):
             logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
             transfer_backbone(backbone, cfg.MODEL.weight_path)
         else:
-            backbone.init_weights()
+            backbone.init_weights(pretrained)
             
         head.apply(init_weights)
             
@@ -187,7 +190,8 @@ def get_model(is_train):
 
 def transfer_backbone(backbone, weight_path):   
     checkpoint = load_checkpoint(load_dir=weight_path)
-    checkpoint = checkpoint['model_state_dict']
+    if 'model_state_dict' in checkpoint:
+        checkpoint = checkpoint['model_state_dict']
 
     new_state_dict = OrderedDict()
     for k, v in checkpoint.items():
@@ -195,4 +199,7 @@ def transfer_backbone(backbone, weight_path):
             name = k.replace('backbone.', '')
             new_state_dict[name] = v
 
-    backbone.load_state_dict(new_state_dict, strict=False)
+    if len(new_state_dict) == 0:
+        backbone.load_state_dict(checkpoint, strict=False)
+    else: 
+        backbone.load_state_dict(new_state_dict, strict=False)

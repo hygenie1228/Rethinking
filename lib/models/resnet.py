@@ -206,9 +206,7 @@ class PoseResNet(nn.Module):
 
         return x
 
-    def init_weights(self):
-        pretrained = 'data/base_data/backbone_models/cls_resnet_50_imagenet.pth'
-
+    def init_weights(self, pretrained):
         if os.path.isfile(pretrained):
             if self.do_upsampling:
                 logger.info('=> init deconv weights from normal distribution')

@@ -662,8 +662,7 @@ class Tester:
         batch_size = pred.shape[0]
         
         pred, target = pred - pred_joint_cam[:, None, smpl.h36m_root_joint_idx, :], target - gt_joint_cam[:, None, smpl.h36m_root_joint_idx, :]
-        pred, target = pred[:, smpl.h36m_eval_joints, :], target[:, smpl.h36m_eval_joints, :]
-        
+     
         mpvpe = []
         for j in range(batch_size):
             mpvpe.append(eval_mpjpe(pred[j], target[j]))

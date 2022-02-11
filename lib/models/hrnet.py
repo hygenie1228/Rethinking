@@ -465,16 +465,7 @@ class PoseHighResolutionNet(nn.Module):
             
         return x
 
-    def init_weights(self, pretrained_type=''):
-        if pretrained_type == 'pose':
-            pretrained = 'data/base_data/backbone_models/pose_hrnet_w32_256x192.pth'
-        elif pretrained_type == 'cls':
-            pretrained = 'data/base_data/backbone_models/cls_hrnet_w32_imagenet.pth'
-        else:
-            return
-
-        logger.info('=> init weights from normal distribution')
-
+    def init_weights(self, pretrained):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')

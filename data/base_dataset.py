@@ -220,8 +220,9 @@ class BaseDataset(Dataset):
                 
             elif self.joint_set['name'] == '3DPW':
                 joint_cam = np.dot(smpl.h36m_joint_regressor, mesh_cam)
-                joint_cam = joint_cam - joint_cam[smpl.h36m_root_joint_idx]
-                mesh_cam = mesh_cam - joint_cam[smpl.h36m_root_joint_idx]
+                root_cam = joint_cam[smpl.h36m_root_joint_idx]
+                joint_cam = joint_cam - root_cam
+                mesh_cam = mesh_cam - root_cam
 
                 # meter to milimeter
                 mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
