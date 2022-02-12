@@ -1,6 +1,6 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MSCOCO', 'Human36M']   
+    train_list: ['Human36M', 'MSCOCO']   
     #train_partition: [1.0]
     # PW3D  
     test_list: ['Human36M']   
@@ -13,7 +13,7 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/pose_pretrained_download/checkpoints/pose_resnet_50_256x192.pth'
+    weight_path: 'experiment/pretrained_0/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
     predictor_hidden_dim: 256
 

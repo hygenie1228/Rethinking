@@ -80,7 +80,7 @@ def prepare_network(args, load_dir='', is_train=True):
 def train_setup(model, checkpoint):    
     criterion, optimizer, lr_scheduler = None, None, None
     if cfg.MODEL.type == 'contrastive':
-        loss_history = {'total_loss': [], 'contrast_loss': []}
+        loss_history = {'total_loss': [], 'human_contrast_loss': [], 'joint_contrast_loss': []}
         error_history = {}
     elif cfg.MODEL.type == '2d_joint':
         loss_history = {'total_loss': [], 'hm_loss': []}
@@ -129,7 +129,8 @@ class Trainer:
         
         if cfg.MODEL.type == 'contrastive':
             self.train = self.train_contrastive
-            self.contrast_loss_weight = cfg.TRAIN.contrast_loss_weight
+            self.human_contrast_loss_weight = cfg.TRAIN.human_contrast_loss_weight
+            self.joint_contrast_loss_weight = cfg.TRAIN.joint_contrast_loss_weight
         elif cfg.MODEL.type == '2d_joint':
             self.train = self.train_2d_joint
             self.hm_loss_weight = cfg.TRAIN.hm_loss_weight
@@ -148,30 +149,34 @@ class Trainer:
         lr = self.lr_scheduler.get_lr()[0]
 
         running_loss = 0.0
-        running_contrast_loss = 0.0
+        running_human_contrast_loss = 0.0
+        running_joint_contrast_loss = 0.0
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
             inp_img_1, inp_img_2 = batch['img'][0].cuda(), batch['img'][1].cuda()
-            meta_hm_1, meta_hm_2 = batch['hm'][0].cuda(), batch['hm'][1].cuda()
+            meta_joint_img_1, meta_joint_img_2 = batch['joint_img'][0].cuda(), batch['joint_img'][1].cuda()
             meta_joint_valid_1, meta_joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
             
             inp_img = torch.cat([inp_img_1, inp_img_2])
-            meta_hm = torch.cat([meta_hm_1, meta_hm_2])
+            meta_joint_img = torch.cat([meta_joint_img_1, meta_joint_img_2])
             meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
             
-            joint_feat = self.model(inp_img, meta_hm, meta_joint_valid)
+            joint_feat = self.model(inp_img, meta_joint_img, meta_joint_valid)
 
             batch_size = inp_img_1.shape[0]
             joint_feat = torch.stack([joint_feat[:batch_size],joint_feat[batch_size:]])
             joint_feat = joint_feat.permute(1,2,0,3).contiguous()
-            meta_joint_valid = meta_joint_valid_1 * meta_joint_valid_2
-
-            # joint_feat: [bs, joint_num, n_views, feat_dim]
-            # joint_valid: [bs, joint_num]
-            loss1 = self.contrast_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
             
-            loss = loss1
+            # joint_feat: [bs, joint_num+non_joint_num, n_views, feat_dim]
+            # joint_valid: [bs, joint_num+non_joint_num, n_views]
+            meta_joint_valid = torch.stack([meta_joint_valid[:batch_size],meta_joint_valid[batch_size:]])
+            meta_joint_valid = meta_joint_valid.permute(1,2,0)
+            loss1 = self.human_contrast_loss_weight*self.loss['human_cont'](joint_feat, meta_joint_valid)
+            meta_joint_valid = meta_joint_valid_1 * meta_joint_valid_2
+            loss2 = self.joint_contrast_loss_weight*self.loss['joint_cont'](joint_feat[:, :-cfg.TRAIN.non_joints_num], meta_joint_valid[:, :-cfg.TRAIN.non_joints_num])
+            
+            loss = loss1 + loss2
             
             # update weights
             self.optimizer.zero_grad()
@@ -179,48 +184,50 @@ class Trainer:
             self.optimizer.step()
 
             # log
-            loss, loss1 = loss.detach(), loss1.detach()
+            loss, loss1, loss2 = loss.detach(), loss1.detach(), loss2.detach()
             running_loss += float(loss.item())
-            running_contrast_loss += float(loss1.item())
+            running_human_contrast_loss += float(loss1.item())
+            running_joint_contrast_loss += float(loss2.item())
 
             if i % self.print_freq == 0:
                 batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr:.1E} => '
-                                                f'joint_cont loss: {loss1:.4f}')
+                                                f'human_cont loss: {loss1:.4f} joint_cont loss: {loss2:.4f}')
             
             # visualize
             if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
                 import cv2
-                from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
+                from vis_utils import vis_keypoints_with_skeleton, vis_keypoints, vis_heatmaps
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
                 
-                joint_img, _ = get_max_preds(meta_hm.cpu().detach().numpy())
+                joint_img = meta_joint_img[:, :-cfg.TRAIN.non_joints_num].cpu().detach().numpy()
                 joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                joint_valid = meta_joint_valid.cpu().detach().numpy()
-
+                non_joint_img = meta_joint_img[:, -cfg.TRAIN.non_joints_num:].cpu().detach().numpy()
+                non_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                non_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
+                joint_valid = meta_joint_valid[:, :-cfg.TRAIN.non_joints_num].cpu().detach().numpy()
+                
                 img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
-                tmp_hm = meta_hm_1[0].cpu().numpy()
-                tmp_img = vis_heatmaps(img[None,...], tmp_hm[None,...])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_1.png'), tmp_img)
 
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[0],joint_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_1.png'), tmp_img)
+
+                tmp_img = vis_keypoints(img, non_joint_img[0])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_non_joint_1.png'), tmp_img)
 
                 img = inv_normalize(inp_img_2[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[batch_size],joint_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_2.png'), tmp_img)
-                
-                tmp_hm = meta_hm_2[0].cpu().numpy()
-                tmp_img = vis_heatmaps(img[None,...], tmp_hm[None,...])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_2.png'), tmp_img)
 
+                tmp_img = vis_keypoints(img, non_joint_img[batch_size])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_non_joint_2.png'), tmp_img)                
+                
             
         self.loss_history['total_loss'].append(running_loss / len(batch_generator))
-        self.loss_history['contrast_loss'].append(running_contrast_loss / len(batch_generator))  
+        self.loss_history['human_contrast_loss'].append(running_human_contrast_loss / len(batch_generator))  
+        self.loss_history['joint_contrast_loss'].append(running_joint_contrast_loss / len(batch_generator))  
             
         logger.info(f'Epoch{epoch} Loss: {self.loss_history["total_loss"][-1]:.4f}')
         
@@ -568,7 +575,8 @@ class Tester:
 
     def save_history(self, loss_history, error_history, epoch):
         if cfg.MODEL.type == 'contrastive':
-            save_plot(loss_history['contrast_loss'], epoch, title='Contrast Loss')
+            save_plot(loss_history['human_contrast_loss'], epoch, title='Human Contrast Loss')
+            save_plot(loss_history['joint_contrast_loss'], epoch, title='Joint Contrast Loss')
         
         elif cfg.MODEL.type == 'body':
             error_history['mpjpe'].append(self.mpjpe)

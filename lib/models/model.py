@@ -24,9 +24,9 @@ class Model(nn.Module):
             self.trainable_modules = [self.backbone, self.head]
         
 
-    def forward(self, inp_img, meta_hm=None, meta_valid=None):
+    def forward(self, inp_img, meta_joint=None, meta_valid=None):
         if cfg.MODEL.type == 'contrastive':
-            return self.forward_contrastive(inp_img, meta_hm)
+            return self.forward_contrastive(inp_img, meta_joint, meta_valid)
         elif cfg.MODEL.type == '2d_joint':
             return self.forward_2d_joint(inp_img)
         elif cfg.MODEL.type == 'body':
@@ -37,25 +37,16 @@ class Model(nn.Module):
             logger.info('Invalid Model Type!')
             assert 0
 
-    def forward_contrastive(self, inp_img, meta_hm):
+    def forward_contrastive(self, inp_img, meta_joint, meta_valid):
+        batch_size = inp_img.shape[0]
         img_feat = self.backbone(inp_img)
-
-        # hm normalization
-        meta_hm = meta_hm.clone()
-        hm_valid = (meta_hm.sum((2,3)) > 0)
-        meta_hm[hm_valid] /= meta_hm.sum((2,3))[hm_valid][:,None,None]
-
-        joint_feat = img_feat[:,None,:,:,:] * meta_hm[:,:,None,:,:]
-        joint_feat = joint_feat.sum((3,4))
-
-        batch_size, joint_num, _ = joint_feat.shape
-        joint_feat = joint_feat.view(batch_size*joint_num, -1)
+        
+        joint_feat = self.sampling_joint_feature(img_feat, meta_joint, meta_valid)
+        joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 
         joint_feat = self.head(joint_feat)
-
         joint_feat = F.normalize(joint_feat, dim=1)
-        joint_feat = joint_feat.view(batch_size, joint_num, -1)
-
+        joint_feat = joint_feat.reshape(batch_size, -1, joint_feat.shape[-1])
         return joint_feat
 
     def forward_2d_joint(self, inp_img):

@@ -186,11 +186,8 @@ class Joint2NonJointLoss(nn.Module):
 
     def forward(self, output, target):
         batch_size, joint_num, n_view, feat_dim = output.shape
-        
-        target = torch.stack([target[:batch_size],target[batch_size:]])
-        target = target.permute(1,2,0)
 
-        output = output.reshape(batch_size*joint_num*n_view, 1, feat_dim)
+        output = output.reshape(batch_size*joint_num*n_view, feat_dim)
         target = target.reshape(batch_size*joint_num*n_view)    
 
         # remove not visible
@@ -200,7 +197,7 @@ class Joint2NonJointLoss(nn.Module):
         labels = torch.zeros((len(target),), device='cuda')
         labels[target==1] = 1
         
-        loss = self.criterion(output, labels)
+        loss = self.criterion(output[:,None,:], labels)
         return loss
 
 class Joint2JointLoss(nn.Module):
@@ -387,6 +384,7 @@ class JointsMSELoss(nn.Module):
 def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
+        loss['human_cont'] = Joint2NonJointLoss(temperature=cfg.TRAIN.temperature)
         loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
         loss['img_cont'] = ImageContrastiveLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == '2d_joint':

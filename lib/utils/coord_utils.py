@@ -168,6 +168,9 @@ def generate_joint_heatmap(joints, joints_vis, image_size, heatmap_size, sigma=2
         if v > 0.5:
             target[joint_id][img_y[0]:img_y[1], img_x[0]:img_x[1]] = g[g_y[0]:g_y[1], g_x[0]:g_x[1]]
 
+    #target_weight = target_weight.reshape(-1)
+    #valid = target.sum((1,2)) > 0
+    #target_weight[~valid] = 0
     return target, target_weight.reshape(-1)
 
 def get_max_preds(batch_heatmaps):
@@ -238,15 +241,37 @@ def image_bound_check(coord, image_size, val=None):
     val[idxs] = 0
     return val
     
+def sampling_heatmap(hm, num):
+    height, width = hm.shape
+    prob = hm.reshape(-1)
 
-def sampling_non_joint(hm, non_joint_num, neg_thr=0.5):
-    joint_hm = (hm.sum(0) < neg_thr)
-    idx = np.where(joint_hm)
-    idx = np.stack(idx, axis=1)
-    idx = idx[np.random.choice(len(idx), non_joint_num)]
+    idxs = np.random.choice(len(prob), num, p=prob)
     
-    sampling_non_joints = np.concatenate([idx[:,1,None],idx[:,0,None]], axis=1)
-    return sampling_non_joints.astype(np.float32)
+    y = idxs // width
+    x = idxs % width
+    return np.concatenate([x[:,None],y[:,None]], axis=1)
+
+def sampling_joint_and_non_joint(hm, hm_valid, non_joint_num):
+    sample_joint = np.zeros((len(hm), 2))
+    
+    for i in range(len(hm)):
+        if hm_valid[i] == 0: continue
+        hm_prob = hm[i] / hm[i].sum()
+        joint_i = sampling_heatmap(hm_prob, 1)
+        sample_joint[i] = joint_i
+
+    non_hm = 1 - np.clip(hm.sum(0),0,1)
+    non_hm = non_hm / non_hm.sum()
+    sample_non_joint = sampling_heatmap(non_hm, non_joint_num)
+
+    return sample_joint, sample_non_joint
+
+def sampling_non_joint(hm, non_joint_num):
+    non_hm = 1 - np.clip(hm.sum(0),0,1)
+    non_hm = non_hm / non_hm.sum()
+    sample_non_joint = sampling_heatmap(non_hm, non_joint_num)
+    
+    return sample_non_joint.astype(np.float32)
 
 
 def sampling_joint_coords(hm, joint_valid, non_joint_num, pos_thr=0.75, neg_thr=0.25):

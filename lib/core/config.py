@@ -78,8 +78,8 @@ cfg.TRAIN.temperature = 0.5
 cfg.TRAIN.use_pseudo_GT = False
 cfg.TRAIN.vis = False
 
-cfg.TRAIN.inter_joint_loss_weight = 1.0
-cfg.TRAIN.intra_joint_loss_weight = 1.0
+cfg.TRAIN.human_contrast_loss_weight = 1.0
+cfg.TRAIN.joint_contrast_loss_weight = 1.0
 cfg.TRAIN.contrast_loss_weight = 1.0
 cfg.TRAIN.hm_loss_weight = 1.0
 cfg.TRAIN.joint_loss_weight = 1.0
