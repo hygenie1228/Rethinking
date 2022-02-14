@@ -14,12 +14,12 @@ class Projector(nn.Module):
             nn.BatchNorm1d(hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, out_dim,bias=False)
-        )        
-        
+        )   
 
-    def forward(self, x):
-        x = self.projection_head(x)
-        return x
+    def forward(self, joint_feat):
+        joint_feat = self.projection_head(joint_feat)
+
+        return joint_feat
 
     
 class HeatmapPredictor(nn.Module):

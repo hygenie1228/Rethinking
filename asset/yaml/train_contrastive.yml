@@ -11,14 +11,14 @@ MODEL:
     type: 'contrastive'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
-    use_upsampling_layer: False
+    use_upsampling_layer: True
     input_img_shape: [256, 192]
-    projector_hidden_dim: 512
-    projector_out_dim: 512
+    projector_hidden_dim: 256
+    projector_out_dim: 256
 
 TRAIN:      
     transfer_backbone: False
-    batch_size: 128
+    batch_size: 64
     shuffle: True
     begin_epoch: 1
     end_epoch: 80
@@ -30,11 +30,11 @@ TRAIN:
     lr_step: [50, 70]
     lr_factor: 0.1
     print_freq: 10
-    heatmap_sigma: 1.0
+    heatmap_sigma: 2.0
     vis: False
 
     contrast_loss_weight: 1.0
-    temperature: 0.07
+    temperature: 0.01
 
 AUG:
     scale_factor: 0.3
