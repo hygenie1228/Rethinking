@@ -58,7 +58,7 @@ class BaseDataset(Dataset):
         else: joint_valid_1 = joint_valid
         
         hm_1, joint_valid_1 = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape, sigma=cfg.TRAIN.heatmap_sigma)
-        non_joint_img_1 = sampling_non_joint(hm_1, cfg.TRAIN.non_joints_num)
+        #non_joint_img_1 = sampling_non_joint(hm_1, cfg.TRAIN.non_joints_num)
 
         img_2, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
         joint_img_2 = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
@@ -66,7 +66,7 @@ class BaseDataset(Dataset):
         else: joint_valid_2 = joint_valid
             
         hm_2, joint_valid_2 = generate_joint_heatmap(joint_img_2, joint_valid_2, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape, sigma=cfg.TRAIN.heatmap_sigma)
-        non_joint_img_2 = sampling_non_joint(hm_2, cfg.TRAIN.non_joints_num)
+        #non_joint_img_2 = sampling_non_joint(hm_2, cfg.TRAIN.non_joints_num)
 
         # debug
         '''
@@ -103,17 +103,18 @@ class BaseDataset(Dataset):
         joint_valid_1 = transform_joint_to_other_db(joint_valid_1, self.joint_set['joints_name'], coco.joints_name)
         joint_valid_2 = transform_joint_to_other_db(joint_valid_2, self.joint_set['joints_name'], coco.joints_name)
         
-        joint_img_1 = np.concatenate([joint_img_1, non_joint_img_1])
-        joint_img_2 = np.concatenate([joint_img_2, non_joint_img_2])
-        joint_img_1, joint_img_2 = joint_img_1.astype(np.float32), joint_img_2.astype(np.float32)
+        #joint_img_1 = np.concatenate([joint_img_1, non_joint_img_1])
+        #joint_img_2 = np.concatenate([joint_img_2, non_joint_img_2])
+        #joint_img_1, joint_img_2 = joint_img_1.astype(np.float32), joint_img_2.astype(np.float32)
 
         # 1: visible, 0: not visible, -1: non joint
-        non_joint_valid = np.ones((cfg.TRAIN.non_joints_num,)) * -1
-        joint_valid_1 = np.concatenate([joint_valid_1, non_joint_valid])
-        joint_valid_2 = np.concatenate([joint_valid_2, non_joint_valid])
+        #non_joint_valid = np.ones((cfg.TRAIN.non_joints_num,)) * -1
+        #joint_valid_1 = np.concatenate([joint_valid_1, non_joint_valid])
+        #joint_valid_2 = np.concatenate([joint_valid_2, non_joint_valid])
 
         batch = {
             'img': [img_1, img_2],
+            'hm': [hm_1, hm_2],
             'joint_img': [joint_img_1, joint_img_2],
             'joint_valid': [joint_valid_1, joint_valid_2]
         }

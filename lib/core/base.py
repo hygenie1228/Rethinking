@@ -155,14 +155,16 @@ class Trainer:
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
             inp_img_1, inp_img_2 = batch['img'][0].cuda(), batch['img'][1].cuda()
+            tar_hm_1, tar_hm_2 = batch['hm'][0].cuda(), batch['hm'][1].cuda()
             meta_joint_img_1, meta_joint_img_2 = batch['joint_img'][0].cuda(), batch['joint_img'][1].cuda()
             meta_joint_valid_1, meta_joint_valid_2 = batch['joint_valid'][0].cuda(), batch['joint_valid'][1].cuda()
             
             inp_img = torch.cat([inp_img_1, inp_img_2])
+            tar_hm = torch.cat([tar_hm_1, tar_hm_2])
             meta_joint_img = torch.cat([meta_joint_img_1, meta_joint_img_2])
             meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
             
-            joint_feat = self.model(inp_img, meta_joint_img, meta_joint_valid)
+            pred_hm, joint_feat = self.model(inp_img, meta_joint_img, meta_joint_valid)
 
             batch_size = inp_img_1.shape[0]
             joint_feat = torch.stack([joint_feat[:batch_size],joint_feat[batch_size:]])
@@ -170,11 +172,9 @@ class Trainer:
             
             # joint_feat: [bs, joint_num+non_joint_num, n_views, feat_dim]
             # joint_valid: [bs, joint_num+non_joint_num, n_views]
-            meta_joint_valid = torch.stack([meta_joint_valid[:batch_size],meta_joint_valid[batch_size:]])
-            meta_joint_valid = meta_joint_valid.permute(1,2,0)
-            loss1 = self.human_contrast_loss_weight*self.loss['human_cont'](joint_feat, meta_joint_valid)
+            loss1 = self.human_contrast_loss_weight*self.loss['hm'](pred_hm, tar_hm, meta_joint_valid)
             meta_joint_valid = meta_joint_valid_1 * meta_joint_valid_2
-            loss2 = self.joint_contrast_loss_weight*self.loss['joint_cont'](joint_feat[:, :-cfg.TRAIN.non_joints_num], meta_joint_valid[:, :-cfg.TRAIN.non_joints_num])
+            loss2 = self.joint_contrast_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
             
             loss = loss1 + loss2
             
@@ -199,13 +199,13 @@ class Trainer:
                 from vis_utils import vis_keypoints_with_skeleton, vis_keypoints, vis_heatmaps
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                 
-                joint_img = meta_joint_img[:, :-cfg.TRAIN.non_joints_num].cpu().detach().numpy()
+                joint_img = meta_joint_img.cpu().detach().numpy()
                 joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
                 non_joint_img = meta_joint_img[:, -cfg.TRAIN.non_joints_num:].cpu().detach().numpy()
                 non_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
                 non_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                joint_valid = meta_joint_valid[:, :-cfg.TRAIN.non_joints_num].cpu().detach().numpy()
+                joint_valid = meta_joint_valid.cpu().detach().numpy()
                 
                 img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
@@ -213,18 +213,21 @@ class Trainer:
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[0],joint_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_1.png'), tmp_img)
 
-                tmp_img = vis_keypoints(img, non_joint_img[0])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_non_joint_1.png'), tmp_img)
-
                 img = inv_normalize(inp_img_2[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[batch_size],joint_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_2.png'), tmp_img)
 
-                tmp_img = vis_keypoints(img, non_joint_img[batch_size])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_non_joint_2.png'), tmp_img)                
-                
-            
+                pred_heatmap = pred_hm.cpu().detach().numpy()
+                pred_joint_img, pred_joint_valid = get_max_preds(pred_heatmap)
+                pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred_1.png'), tmp_img)
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[batch_size],pred_joint_valid[batch_size,:]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred_2.png'), tmp_img)
+
         self.loss_history['total_loss'].append(running_loss / len(batch_generator))
         self.loss_history['human_contrast_loss'].append(running_human_contrast_loss / len(batch_generator))  
         self.loss_history['joint_contrast_loss'].append(running_joint_contrast_loss / len(batch_generator))  

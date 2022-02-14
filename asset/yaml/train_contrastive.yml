@@ -13,8 +13,8 @@ MODEL:
     backbone: 'resnet50'
     use_upsampling_layer: True
     input_img_shape: [256, 192]
-    projector_hidden_dim: 512
-    projector_out_dim: 512
+    projector_hidden_dim: 256
+    projector_out_dim: 256
 
 TRAIN:      
     transfer_backbone: False

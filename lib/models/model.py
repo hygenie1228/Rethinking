@@ -44,10 +44,10 @@ class Model(nn.Module):
         joint_feat = self.sampling_joint_feature(img_feat, meta_joint, meta_valid)
         joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 
-        joint_feat = self.head(joint_feat)
+        heatmap, joint_feat = self.head(img_feat, joint_feat)
         joint_feat = F.normalize(joint_feat, dim=1)
         joint_feat = joint_feat.reshape(batch_size, -1, joint_feat.shape[-1])
-        return joint_feat
+        return heatmap, joint_feat
 
     def forward_2d_joint(self, inp_img):
         batch_size = inp_img.shape[0]
