@@ -166,7 +166,7 @@ def get_model(is_train):
     elif cfg.MODEL.type == '2d_joint':
         head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == 'body':
-        head = BodyPredictor(backbone_out_dim,cfg.MODEL.predictor_hidden_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim, img_feat_shape=cfg.MODEL.img_feat_shape, pos_enc=True)
+        head = BodyPredictor(backbone_out_dim,cfg.MODEL.predictor_hidden_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim, img_feat_shape=cfg.MODEL.img_feat_shape)
     elif cfg.MODEL.type == 'hand':
         pass
     else:

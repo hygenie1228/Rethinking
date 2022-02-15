@@ -72,13 +72,9 @@ class Predictor(nn.Module):
 
 
 class BodyPredictor(nn.Module):
-    def __init__(self, in_dim, hidden_dim_1, hidden_dim_2, shape_feat_dim, img_feat_shape, pos_enc=False):
+    def __init__(self, in_dim, hidden_dim_1, hidden_dim_2, shape_feat_dim, img_feat_shape):
         super().__init__()
         self.img_feat_shape = img_feat_shape
-        self.pos_enc = pos_enc
-        
-        if pos_enc:
-            in_dim += 2
             
         self.conv = make_conv_layers([in_dim, hidden_dim_1, hidden_dim_1], kernel=3, padding=1, use_bn=True, bnrelu_final=True)
         
@@ -91,19 +87,7 @@ class BodyPredictor(nn.Module):
         self.shape_out = make_linear_layers([shape_feat_dim*smpl.joint_num,smpl.shape_param_dim], relu_final=False)
         self.cam_out = make_linear_layers([shape_feat_dim*smpl.joint_num,3], relu_final=False)
 
-        if self.pos_enc:
-            pos_h = torch.arange(self.img_feat_shape[0])[:, None]
-            pos_h = torch.repeat_interleave(pos_h, self.img_feat_shape[1], dim=1)
-            pos_w = torch.arange(self.img_feat_shape[1])[None, :]
-            pos_w = torch.repeat_interleave(pos_w, self.img_feat_shape[0], dim=0)
-            positional_encoding = torch.stack([pos_h, pos_w])
-            self.register_buffer('positional_encoding', positional_encoding)
-
     def forward(self, x):
-        if self.pos_enc:
-            positional_encoding = torch.repeat_interleave(self.positional_encoding[None,...], x.shape[0], dim=0)
-            x = torch.cat([x, positional_encoding], dim=1)
-        
         x = self.conv(x)
         atten_map = self.atten_conv(x)
         atten_map = self.atten_final_conv(atten_map)        
