@@ -227,10 +227,6 @@ class PoseResNet(nn.Module):
             pretrained_state_dict = torch.load(pretrained)
             logger.info('=> loading pretrained model {}'.format(pretrained))
 
-            if pretrained_type == 'cls':
-                pretrained_state_dict.pop('fc.weight', None)
-                pretrained_state_dict.pop('fc.bias', None)
-
             self.load_state_dict(pretrained_state_dict, strict=False)
         else:
             logger.info('=> init weights from normal distribution')
