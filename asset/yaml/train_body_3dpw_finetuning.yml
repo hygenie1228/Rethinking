@@ -1,0 +1,52 @@
+DATASET:
+    # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
+    train_list: ['PW3D']   
+    #train_partition: [1.0]
+    # PW3D  
+    test_list: ['PW3D']   
+    make_same_len: True    
+    workers: 16
+
+MODEL:
+    # 'contrastive', 'body', 'hand', '2d_joint'
+    type: 'body'
+    # 'resnet50', 'hrnetw32'
+    backbone: 'resnet50'
+    use_upsampling_layer: False
+    weight_path: 'experiment/posecontrast_4/checkpoints/final.pth.tar'
+    input_img_shape: [256, 192]
+    predictor_hidden_dim: 256
+
+TRAIN:
+    transfer_backbone: True
+    freeze_backbone: True
+    batch_size: 48
+    shuffle: True 
+    begin_epoch: 1
+    end_epoch: 100
+    optimizer: 'adam'
+    scheduler: 'step'
+    lr: 1.0e-4
+    lr_step: [60, 80]
+    lr_factor: 0.1
+    print_freq: 10
+    use_pseudo_GT: True
+    vis: False
+
+    joint_loss_weight: 1.0
+    proj_loss_weight: 0.1
+    pose_loss_weight: 1.0
+    shape_loss_weight: 1.0
+    prior_loss_weight: 0.0
+    
+AUG:
+    scale_factor: 0.25
+    rot_factor: 30
+    color_factor: 0.2
+    flip: True
+
+TEST:
+    batch_size: 32
+    shuffle: False
+    vis: True
+    vis_freq: 200

@@ -33,7 +33,7 @@ TRAIN:
     vis: False
     
     contrast_loss_weight: 1.0
-    heatmap_sigma: 2.0
+    heatmap_sigma: 4.0
     sampling_num: 8
     temperature: 0.1
 
