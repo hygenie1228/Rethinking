@@ -34,7 +34,7 @@ TRAIN:
     vis: False
 
     contrast_loss_weight: 1.0
-    temperature: 0.07
+    temperature: 0.1
 
 AUG:
     scale_factor: 0.3
