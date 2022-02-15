@@ -44,10 +44,10 @@ class Model(nn.Module):
         joint_feat = self.sampling_joint_feature(img_feat, meta_joint, meta_valid)
         joint_feat = joint_feat.reshape(-1, joint_feat.shape[-1])
 
-        heatmap, joint_feat = self.head(img_feat, joint_feat)
+        joint_feat = self.head(joint_feat)
         joint_feat = F.normalize(joint_feat, dim=1)
         joint_feat = joint_feat.reshape(batch_size, -1, joint_feat.shape[-1])
-        return heatmap, joint_feat
+        return joint_feat
 
     def forward_2d_joint(self, inp_img):
         batch_size = inp_img.shape[0]
@@ -75,16 +75,13 @@ class Model(nn.Module):
     
     
     def sampling_joint_feature(self, output, joints, joints_valid):
-        batch_size = joints_valid.shape[0]
-        joint_feat = torch.zeros((batch_size, joints_valid.shape[1], output.shape[1]), device='cuda')
-        
+        batch_size = output.shape[0]
+        joint_feat = torch.zeros((batch_size, joints.shape[1], output.shape[1]), device='cuda')
+    
         for i in range(batch_size):
             feature = output[i, None]
             points = joints[i]
-            points_valid = (joints_valid[i] != 0)
-
-            points = points[points_valid]
-            joint_feat[i, points_valid] = sample_image_feature(feature, points, cfg.MODEL.img_feat_shape[1]-1, cfg.MODEL.img_feat_shape[0]-1)
+            joint_feat[i] = sample_image_feature(feature, points, cfg.MODEL.img_feat_shape[1]-1, cfg.MODEL.img_feat_shape[0]-1)
             
         return joint_feat
     

@@ -4,17 +4,17 @@ DATASET:
     # PW3D  
     test_list: []
     train_partition: [1.0]
-    make_same_len: True
+    make_same_len: False
     workers: 16
 
 MODEL:
     type: 'contrastive'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
-    use_upsampling_layer: True
+    use_upsampling_layer: False
     input_img_shape: [256, 192]
-    projector_hidden_dim: 256
-    projector_out_dim: 256
+    projector_hidden_dim: 512
+    projector_out_dim: 512
 
 TRAIN:      
     transfer_backbone: False
@@ -30,13 +30,12 @@ TRAIN:
     lr_step: [50, 70]
     lr_factor: 0.1
     print_freq: 10
-    heatmap_sigma: 2.0
-    non_joints_num: 19
-    vis: True
+    vis: False
     
-    human_contrast_loss_weight: 1.0
-    joint_contrast_loss_weight: 1.0
-    temperature: 0.01
+    contrast_loss_weight: 1.0
+    heatmap_sigma: 2.0
+    sampling_num: 8
+    temperature: 0.1
 
 AUG:
     scale_factor: 0.3

@@ -9,20 +9,16 @@ from human_models import smpl, coco
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.hm_head = nn.Conv2d(in_channels=in_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
-        
         self.projection_head = nn.Sequential(
             nn.Linear(in_dim, hidden_dim, bias=True),
             nn.BatchNorm1d(hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, out_dim,bias=False)
         )        
-        
 
-    def forward(self, img_feat, joint_feat):
-        hm = self.hm_head(img_feat)
-        joint_feat = self.projection_head(joint_feat)
-        return hm, joint_feat
+    def forward(self, x):
+        x = self.projection_head(x)
+        return x
 
     
 class HeatmapPredictor(nn.Module):
