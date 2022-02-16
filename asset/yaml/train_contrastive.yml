@@ -1,6 +1,7 @@
 DATASET:
     # 'MSCOCO'
-    train_list: ['MSCOCO']    
+    train_list: ['YT3D']    
+    # train_list: ['MSCOCO']
     # PW3D  
     test_list: []
     train_partition: [1.0]
