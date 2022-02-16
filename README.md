@@ -44,3 +44,28 @@ python main/train.py --gpu 0,1 --cfg ./asset/yaml/train_body.yml
 HPS (human body pose&shape) evaluation
 
 python main/test.py --gpu 0 --cfg ./asset/yaml/eval_body.yml
+
+
+
+### Hand experiment setting
+
+2D hand supervised pretraining (YT3D)
+
+python main/train.py --gpu 0,1,2,3 --cfg ./asset/yaml/train_2d_hand.yml
+
+
+hand contrastive pretraining (YT3D)
+
+TBD
+
+
+hand pose&shape finetuning (FreiHAND)
+
+TBD
+
+
+hand pose&shape evaluation (FreiHAND)
+
+TBD
+
+
