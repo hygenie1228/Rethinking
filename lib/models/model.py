@@ -9,14 +9,19 @@ from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
 from funcs_utils import load_checkpoint, sample_image_feature, rot6d_to_axis_angle, soft_argmax_2d
-from human_models import smpl, coco
+from human_models import smpl, coco, mano
 
 class Model(nn.Module):
     def __init__(self, backbone, head):
         super(Model, self).__init__()
         self.backbone = backbone
         self.head = head
-        self.smpl_layer = copy.deepcopy(smpl.layer['neutral']).cuda()
+        if "YT3D" in cfg.DATASET.train_list or "FreiHAND" in cfg.DATASET.train_list:
+            self.left_layer = copy.deepcopy(mano.layer['left']).cuda()
+            self.right_layer = copy.deepcopy(mano.layer['right']).cuda()
+            
+        else:
+            self.smpl_layer = copy.deepcopy(smpl.layer['neutral']).cuda()
         
         if cfg.TRAIN.freeze_backbone:
             self.trainable_modules = [self.head]
@@ -33,6 +38,8 @@ class Model(nn.Module):
             return self.forward_body(inp_img)
         elif cfg.MODEL.type == 'hand':
             return self.forward_hand(inp_img)
+        elif cfg.MODEL.type == '2d_hand':
+            return self.forward_2d_joint(inp_img)
         else:
             logger.info('Invalid Model Type!')
             assert 0
@@ -169,6 +176,8 @@ def get_model(is_train):
         head = BodyPredictor(backbone_out_dim,cfg.MODEL.predictor_hidden_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim, img_feat_shape=cfg.MODEL.img_feat_shape, pos_enc=True)
     elif cfg.MODEL.type == 'hand':
         pass
+    elif cfg.MODEL.type == '2d_hand':
+        head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=mano.joint_num, kernel_size=1, stride=1,padding=0)
     else:
         assert 0
     

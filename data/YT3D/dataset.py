@@ -30,8 +30,8 @@ class YT3D(BaseDataset):
             'name': 'YT3D',
             'joint_num': mano.joint_num,
             'joints_name': mano.joints_name,
-            'flip_pairs': (),
-            'skeleton': ()
+            'flip_pairs': mano.flip_pairs,
+            'skeleton': mano.skeleton
         }
         
 
@@ -52,8 +52,7 @@ class YT3D(BaseDataset):
         return datalist
 
     def load_data(self):
-        if self.data_split == 'train':
-            db = COCO(osp.join(self.annot_path, 'youtube_train.json'))
+        db = COCO(osp.join(self.annot_path, 'youtube_train.json'))
 
         datalist = []
         for aid in self.datalist_pose2d_det.keys():

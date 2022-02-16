@@ -15,7 +15,7 @@ from core.logger import logger
 from img_utils import load_img, annToMask
 from coord_utils import generate_joint_heatmap, sampling_non_joint, image_bound_check
 from aug_utils import img_processing, coord2D_processing, coord3D_processing, smpl_param_processing, flip_joint, transform_joint_to_other_db
-from human_models import smpl, coco
+from human_models import smpl, coco, mano
 
 from vis_utils import vis_keypoints, vis_keypoints_with_skeleton, vis_3d_pose, vis_heatmaps, save_obj
 
@@ -35,6 +35,8 @@ class BaseDataset(Dataset):
             return self.get_item_contrastive(index)
         elif cfg.MODEL.type == '2d_joint':
             return self.get_item_2d_joint(index)
+        elif cfg.MODEL.type == '2d_hand':
+            return self.get_item_2d_hand(index)
         elif cfg.MODEL.type == 'body':
             return self.get_item_body(index)
         elif cfg.MODEL.type == 'hand':
@@ -149,6 +151,53 @@ class BaseDataset(Dataset):
             }
         
         return batch
+
+    def get_item_2d_hand(self, index):
+        data = copy.deepcopy(self.datalist[index])
+        
+        img_path = data['img_path']
+        img = load_img(img_path)
+
+        bbox = data['bbox']
+        joint_img, joint_valid = data['joint_img'], data['joint_valid']
+        
+        img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
+        joint_img = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
+        if do_flip: joint_valid = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
+
+        hm, joint_valid = generate_joint_heatmap(joint_img, joint_valid, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape)
+
+        # debug
+        '''
+        tmp_img = img[:,:,::-1]
+        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_img.png'), tmp_img)
+        #hm = np.clip(hm.sum(0)[None,...],0,1)
+        img2 = vis_heatmaps(tmp_img[None,...], hm[None,...])
+        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_hm.png'), img2)
+        img2 = vis_keypoints_with_skeleton(tmp_img, np.concatenate([joint_img,joint_valid[:,None]],1), self.joint_set['skeleton'])
+        cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joint_img.png'), img2)
+        '''
+
+        img = self.transform(img.astype(np.float32))
+        joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], mano.joints_name)
+        hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], mano.joints_name)
+        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], mano.joints_name) 
+
+        if self.data_split == 'train':
+            batch = {
+                'img': img,
+                'hm': hm,
+                'hm_valid': joint_valid
+            }
+        else:
+            batch = {
+                'img': img,
+                'hm': hm,
+                'hm_valid': joint_valid
+            }
+        
+        return batch
+
 
     def get_item_body(self, index):
         data = copy.deepcopy(self.datalist[index])

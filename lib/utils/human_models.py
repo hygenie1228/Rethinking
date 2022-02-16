@@ -40,6 +40,10 @@ class MANO(object):
         self.layer_arg = {'create_global_orient': False, 'create_hand_pose': False, 'create_betas': False, 'create_transl': False}
         self.layer = {'right': smplx.create(self.model_path, 'mano', is_rhand=True, use_pca=False, flat_hand_mean=False, **self.layer_arg), 'left': smplx.create(self.model_path, 'mano', is_rhand=False, use_pca=False, flat_hand_mean=False, **self.layer_arg)}
         
+        self.skeleton = (
+            (0, 1), (1, 2), (2, 3), (0, 4), (4, 5), (5, 6), (0, 7), (7, 8), (8, 9), 
+            (0, 10), (10, 11), (11, 12), (0, 13), (13, 14), (14, 15)
+        )
         self.vertex_num = 778
         self.face = {'right': self.layer['right'].faces, 'left': self.layer['left'].faces}
         self.shape_param_dim = 10

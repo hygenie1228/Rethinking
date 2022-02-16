@@ -19,7 +19,7 @@ from coord_utils import get_max_preds, flip_back
 from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
 from eval_utils import eval_mpjpe, eval_pa_mpjpe, calc_dists, dist_acc
 from vis_utils import save_plot
-from human_models import smpl, coco
+from human_models import smpl, coco, mano
 
 
 def get_dataloader(dataset_names, is_train):
@@ -85,6 +85,9 @@ def train_setup(model, checkpoint):
     elif cfg.MODEL.type == '2d_joint':
         loss_history = {'total_loss': [], 'hm_loss': []}
         error_history = {'pck': []}
+    elif cfg.MODEL.type == '2d_hand':
+        loss_history = {'total_loss': [], 'hm_loss': []}
+        error_history = {'pck': []}
     elif cfg.MODEL.type == 'body':
         loss_history = {'total_loss': [], 'joint_loss': [], 'smpl_joint_loss': [], 'proj_loss': [], 'pose_param_loss': [], 'shape_param_loss': [], 'prior_loss': []}
         error_history = {'mpjpe': [], 'pa_mpjpe': [], 'mpvpe': []}
@@ -131,6 +134,9 @@ class Trainer:
             self.train = self.train_contrastive
             self.contrast_loss_weight = cfg.TRAIN.contrast_loss_weight
         elif cfg.MODEL.type == '2d_joint':
+            self.train = self.train_2d_joint
+            self.hm_loss_weight = cfg.TRAIN.hm_loss_weight
+        elif cfg.MODEL.type == '2d_hand':
             self.train = self.train_2d_joint
             self.hm_loss_weight = cfg.TRAIN.hm_loss_weight
         elif cfg.MODEL.type == 'body':
@@ -283,11 +289,20 @@ class Trainer:
                 tmp_img = vis_heatmaps(img[None,...], tar_heatmap[0, None,...])
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_gt.png'), tmp_img)
 
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred.png'), tmp_img)
+                if "YT3D" in cfg.DATASET.train_list or "FreiHAND" in cfg.DATASET.train_list:
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), mano.skeleton)
+                    cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred.png'), tmp_img)
 
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), mano.skeleton)
+                    cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
+                    
+                    
+                else:
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
+                    cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred.png'), tmp_img)
+
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), coco.skeleton)
+                    cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
     
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator)) 

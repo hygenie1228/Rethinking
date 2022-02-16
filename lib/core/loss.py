@@ -391,6 +391,8 @@ def get_loss():
         loss['img_cont'] = ImageContrastiveLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = JointsMSELoss(use_target_weight=True)
+    elif cfg.MODEL.type == '2d_hand':
+        loss['hm'] = JointsMSELoss(use_target_weight=True)
     elif cfg.MODEL.type == 'body':
         loss['joint_cam'] = CoordLoss(has_valid=True)
         loss['smpl_joint_cam'] = CoordLoss(has_valid=True)
