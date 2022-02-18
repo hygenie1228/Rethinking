@@ -24,7 +24,7 @@ TRAIN:
     end_epoch: 80
     warmup_epoch: 3
     optimizer: 'adam'
-    scheduler: 'step'  #'step', 'cosine'
+    scheduler: 'step' 
     lr: 0.001
     min_lr: 1.0e-6
     lr_step: [50, 70]
