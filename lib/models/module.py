@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -46,6 +47,50 @@ class PAREHead(nn.Module):
 
         pred_pose = pred_pose.squeeze(-1).transpose(2, 1)
         return pred_pose, pred_shape, pred_cam
+
+class HMRHead(nn.Module):
+    def __init__(self, in_dim, hidden_dim=1024, smpl_mean_params='', n_iter=3):
+        super().__init__()            
+        self.fc1 = nn.Linear(in_dim+157, hidden_dim)
+        self.drop1 = nn.Dropout()
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.drop2 = nn.Dropout()
+        self.decpose = nn.Linear(hidden_dim, 144)
+        self.decshape = nn.Linear(hidden_dim, 10)
+        self.deccam = nn.Linear(hidden_dim, 3)
+        self.n_iter = n_iter
+        
+        mean_params = np.load(smpl_mean_params)
+        init_pose = torch.from_numpy(mean_params['pose'][:]).unsqueeze(0)
+        init_shape = torch.from_numpy(mean_params['shape'][:].astype('float32')).unsqueeze(0)
+        init_cam = torch.from_numpy(mean_params['cam']).unsqueeze(0)
+        self.register_buffer('init_pose', init_pose)
+        self.register_buffer('init_shape', init_shape)
+        self.register_buffer('init_cam', init_cam)
+        
+    def forward(self, features):
+        batch_size = features.shape[0]
+        xf = features.mean((2,3))
+
+        init_pose = self.init_pose.expand(batch_size, -1)
+        init_shape = self.init_shape.expand(batch_size, -1)
+        init_cam = self.init_cam.expand(batch_size, -1)
+
+        pred_pose = init_pose
+        pred_shape = init_shape
+        pred_cam = init_cam
+        for i in range(self.n_iter):
+            xc = torch.cat([xf, pred_pose, pred_shape, pred_cam],1)
+            xc = self.fc1(xc)
+            xc = self.drop1(xc)
+            xc = self.fc2(xc)
+            xc = self.drop2(xc)
+            pred_pose = self.decpose(xc) + pred_pose
+            pred_shape = self.decshape(xc) + pred_shape
+            pred_cam = self.deccam(xc) + pred_cam
+
+        return pred_pose, pred_shape, pred_cam
+
 
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):

@@ -3,8 +3,9 @@ import torch.nn as nn
 from torch.nn import functional as F
 import math
 import copy
+import os.path as osp
 
-from models import PoseResNet, PoseHighResolutionNet, Projector, PAREHead, HeatmapPredictor
+from models import PoseResNet, PoseHighResolutionNet, Projector, PAREHead, HMRHead, HeatmapPredictor
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
@@ -166,7 +167,12 @@ def get_model(is_train):
     elif cfg.MODEL.type == '2d_joint':
         head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == 'body':
-        head = PAREHead(backbone_out_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim)
+        if cfg.MODEL.regressor == 'pare':
+            head = PAREHead(backbone_out_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim)
+        elif cfg.MODEL.regressor == 'hmr':
+            head = HMRHead(backbone_out_dim, smpl_mean_params=osp.join('data','base_data','smpl_mean_params.npz'))
+        else:
+            assert 0
     elif cfg.MODEL.type == 'hand':
         pass
     else:

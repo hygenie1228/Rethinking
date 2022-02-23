@@ -46,6 +46,7 @@ cfg.DATASET.random_seed = 123
 cfg.MODEL = edict()
 cfg.MODEL.type = 'contrastive'
 cfg.MODEL.backbone = 'resnet50'
+cfg.MODEL.regressor = 'pare'
 cfg.MODEL.use_upsampling_layer = True
 cfg.MODEL.input_img_shape = (256, 192)
 cfg.MODEL.img_feat_shape = (64, 48)
