@@ -30,11 +30,22 @@ class PW3D(BaseDataset):
         
         self.has_joint_cam = True
         self.has_smpl_param = True
+        self.use_pseudo_GT = False
+
         self.datalist = self.load_data()
         
-    def load_data(self):
-        db = COCO(osp.join(self.annot_path, '3DPW_latest_' + self.data_split + '.json'))
         
+        
+    def load_data(self):
+        if self.data_split == 'train':
+            db = COCO(osp.join(self.annot_path, '3DPW_train.json'))
+        else:
+            db = COCO(osp.join(self.annot_path, '3DPW_latest_test.json'))
+        
+        if self.use_pseudo_GT:
+            with open(osp.join(self.annot_path, '3DPW_train_SMPL_NeuralAnnot.json')) as f:
+                smpl_params = json.load(f)
+
         datalist = []
         for aid in db.anns.keys():
             ann = db.anns[aid]
@@ -45,13 +56,20 @@ class PW3D(BaseDataset):
             bbox = process_bbox(ann['bbox'], img['width'], img['height']) 
             if bbox is None: continue
             
-            joint_img = np.array(ann['joint_img'], dtype=np.float32).reshape(-1,2)
-            joint_cam = np.array(ann['joint_cam'], dtype=np.float32).reshape(-1,3) * 1000  # milimeter
+            joint_img = np.array(ann['joint_img'], dtype=np.float32).reshape(24,-1)
+            joint_cam = np.array(ann['joint_cam'], dtype=np.float32).reshape(24,-1) * 1000  # milimeter
             joint_valid = np.ones((len(joint_img), ))
             joint_img = joint_img[:, :2]
             
-            cam_param = {k: np.array(v, dtype=np.float32) for k,v in img['cam_param'].items()}
-            smpl_param = ann['smpl_param']
+            if self.use_pseudo_GT and self.data_split == 'train':
+                if str(aid) in smpl_params:
+                    cam_param = {k: np.array(v, dtype=np.float32) for k,v in img['cam_param'].items()}
+                    smpl_param = smpl_params[str(aid)]
+                else:
+                    continue
+            else:
+                cam_param = {k: np.array(v, dtype=np.float32) for k,v in img['cam_param'].items()}
+                smpl_param = ann['smpl_param']
             
             datalist.append({
                 'ann_id': aid,

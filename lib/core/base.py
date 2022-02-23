@@ -321,7 +321,8 @@ class Trainer:
             loss3 = self.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
             loss4 = self.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
             loss5 = self.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
-            loss6 = self.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:,3:], pred_smpl_shape)
+            #loss6 = self.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:,3:], pred_smpl_shape)
+            loss6 = torch.tensor(0).cuda()
             loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
             
             # update weights
@@ -344,7 +345,7 @@ class Trainer:
                                                 f'joint: {loss1:.4f} smpl_joint: {loss2:.4f} proj: {loss3:.4f} pose: {loss4:.4f}, shape: {loss5:.4f}, prior: {loss6:.4f}')
             
             # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//5) == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])

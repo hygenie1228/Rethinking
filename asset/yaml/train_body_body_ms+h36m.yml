@@ -13,7 +13,7 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/pose_pretrained_download/checkpoints/pose_resnet_50_256x192.pth'
+    weight_path: 'experiment/pretrained_body_ms_long/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:

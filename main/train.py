@@ -51,17 +51,7 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
 
     tester.save_history(trainer.loss_history, trainer.error_history, epoch) 
     
-    if cfg.MODEL.type == 'contrastive' or cfg.MODEL.type == '2d_joint' or cfg.DATASET.train_list == ['PW3D']:
-        if epoch%10 == 0:
-            save_checkpoint({
-                'epoch': epoch,
-                'model_state_dict': check_data_parallel(trainer.model.state_dict()),
-                'optim_state_dict': trainer.optimizer.state_dict(),
-                'scheduler_state_dict': trainer.lr_scheduler.state_dict(),
-                'train_log': trainer.loss_history,
-                'test_log': trainer.error_history
-            }, epoch, is_best)
-    else:
+    if is_best or (epoch%10 == 0):
         save_checkpoint({
             'epoch': epoch,
             'model_state_dict': check_data_parallel(trainer.model.state_dict()),
