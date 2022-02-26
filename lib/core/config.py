@@ -78,6 +78,7 @@ cfg.TRAIN.heatmap_sigma = 10
 cfg.TRAIN.temperature = 0.5
 cfg.TRAIN.use_pseudo_GT = False
 cfg.TRAIN.vis = False
+cfg.TRAIN.non_joint_num = 4
 
 cfg.TRAIN.inter_joint_loss_weight = 1.0
 cfg.TRAIN.intra_joint_loss_weight = 1.0

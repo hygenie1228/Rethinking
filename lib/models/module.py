@@ -15,11 +15,16 @@ class Projector(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, out_dim,bias=False)
         )        
-        
 
     def forward(self, x):
-        x = self.projection_head(x)
-        return x
+        batch_size, sample_num = x.shape[0], x.shape[1]
+        x = x.view(batch_size*sample_num, x.shape[-1])
+
+        proj_feat = self.projection_head(x)
+        proj_feat = F.normalize(proj_feat, dim=1)
+        proj_feat = proj_feat.view(batch_size, -1, proj_feat.shape[-1])
+        
+        return proj_feat
 
     
 class HeatmapPredictor(nn.Module):
