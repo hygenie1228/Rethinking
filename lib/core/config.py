@@ -38,6 +38,7 @@ cfg.DATASET = edict()
 cfg.DATASET.train_list = []
 cfg.DATASET.train_partition = [1.0]
 cfg.DATASET.test_list = []
+cfg.DATASET.do_subsampling = False
 cfg.DATASET.make_same_len = False
 cfg.DATASET.workers = 16
 cfg.DATASET.random_seed = 123

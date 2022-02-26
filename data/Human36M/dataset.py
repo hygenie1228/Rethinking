@@ -84,7 +84,7 @@ class Human36M(BaseDataset):
         
         db.createIndex()
         
-        
+        sampling_idx = 0
         datalist = []
         for aid in db.anns.keys():
             ann = db.anns[aid]
@@ -126,6 +126,10 @@ class Human36M(BaseDataset):
             joint_img = cam2pixel(joint_cam, f, c)[:,:2]
             joint_valid = np.ones((self.joint_set['joint_num'],))
             
+            if self.data_split == 'train' and cfg.DATASET.do_subsampling:
+                sampling_idx += 1
+                if sampling_idx%10 != 0: continue
+
             datalist.append({
                 'ann_id': aid,
                 'img_id': image_id,

@@ -58,6 +58,7 @@ class MSCOCO(BaseDataset):
                 with open(osp.join(self.annot_path, 'MSCOCO_val_SMPL_NeuralAnnot.json')) as f:
                     smpl_params = json.load(f)
         
+        sampling_idx = 0
         datalist = []
         for aid in db.anns.keys():
             ann = db.anns[aid]
@@ -86,7 +87,11 @@ class MSCOCO(BaseDataset):
             else:
                 smpl_param = None
                 cam_param = None
-            
+
+            if self.data_split == 'train' and cfg.DATASET.do_subsampling:
+                sampling_idx += 1
+                if sampling_idx%10 != 0: continue
+
             datalist.append({
                 'ann_id': aid,
                 'img_id': image_id,

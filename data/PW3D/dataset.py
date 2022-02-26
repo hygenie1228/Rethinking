@@ -71,6 +71,10 @@ class PW3D(BaseDataset):
                 cam_param = {k: np.array(v, dtype=np.float32) for k,v in img['cam_param'].items()}
                 smpl_param = ann['smpl_param']
             
+            if self.data_split == 'train' and cfg.DATASET.do_subsampling:
+                sampling_idx += 1
+                if sampling_idx%10 != 0: continue
+            
             datalist.append({
                 'ann_id': aid,
                 'img_id': image_id,
