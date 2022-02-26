@@ -46,6 +46,7 @@ class PW3D(BaseDataset):
             with open(osp.join(self.annot_path, '3DPW_train_SMPL_NeuralAnnot.json')) as f:
                 smpl_params = json.load(f)
 
+        sampling_idx = 0
         datalist = []
         for aid in db.anns.keys():
             ann = db.anns[aid]

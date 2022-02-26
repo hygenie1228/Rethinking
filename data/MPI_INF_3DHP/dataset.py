@@ -54,6 +54,7 @@ class MPI_INF_3DHP(BaseDataset):
         else:
             smpl_params = None
 
+        sampling_idx = 0
         datalist = []
         for aid in db.anns.keys():
             ann = db.anns[aid]
