@@ -194,15 +194,17 @@ def get_model(is_train):
 
 def transfer_backbone(backbone, weight_path):   
     checkpoint = load_checkpoint(load_dir=weight_path)
-    if 'model_state_dict' in checkpoint:
-        checkpoint = checkpoint['model_state_dict']
+    if 'state_dict' in checkpoint:
+        checkpoint = checkpoint['state_dict']
+    '''if 'model_state_dict' in checkpoint:
+        checkpoint = checkpoint['model_state_dict']'''
 
     new_state_dict = OrderedDict()
     for k, v in checkpoint.items():
         if 'backbone' in k:
             name = k.replace('backbone.', '')
             new_state_dict[name] = v
-
+    
     if len(new_state_dict) == 0:
         backbone.load_state_dict(checkpoint, strict=False)
     else: 
