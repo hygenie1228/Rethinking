@@ -37,9 +37,7 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
     trainer.lr_scheduler.step()
     
     if len(cfg.DATASET.test_list) > 0:
-        if cfg.MODEL.type == '2d_joint' or cfg.DATASET.train_list == ['PW3D']:
-            if epoch % 10 == 0: tester.test(epoch, current_model=trainer.model) 
-        else: tester.test(epoch, current_model=trainer.model)    
+        tester.test(epoch, current_model=trainer.model)    
     
     is_best = None
     if cfg.MODEL.type == '2d_joint':

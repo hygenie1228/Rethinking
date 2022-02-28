@@ -196,8 +196,8 @@ def transfer_backbone(backbone, weight_path):
     checkpoint = load_checkpoint(load_dir=weight_path)
     if 'state_dict' in checkpoint:
         checkpoint = checkpoint['state_dict']
-    '''if 'model_state_dict' in checkpoint:
-        checkpoint = checkpoint['model_state_dict']'''
+    if 'model_state_dict' in checkpoint:
+        checkpoint = checkpoint['model_state_dict']
 
     new_state_dict = OrderedDict()
     for k, v in checkpoint.items():
