@@ -502,7 +502,8 @@ class Tester:
         self.model.eval()
         
         mpjpe, pa_mpjpe, mpvpe = [], [], []
-        
+        error_x, error_y, error_z = [], [], []
+
         eval_prefix = f'Epoch{epoch} ' if epoch else ''
         loader = tqdm(self.val_loader)
         with torch.no_grad():
@@ -523,6 +524,8 @@ class Tester:
                 tar_mesh_cam = batch['mesh_cam'].cpu().numpy()
                 
                 mpjpe_i, pa_mpjpe_i = self.eval_3d_joint(pred_joint_cam, tar_joint_cam)
+                error_x_i, error_y_i, error_z_i = self.eval_xyz_joint(pred_joint_cam, tar_joint_cam)
+                error_x.extend(error_x_i); error_y.extend(error_y_i); error_z.extend(error_z_i)
                 mpjpe.extend(mpjpe_i); pa_mpjpe.extend(pa_mpjpe_i)
                 mpjpe_i, pa_mpjpe_i = sum(mpjpe_i)/batch_size, sum(pa_mpjpe_i)/batch_size
                 
@@ -556,11 +559,16 @@ class Tester:
             self.mpjpe = sum(mpjpe) / self.dataset_length
             self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length
             self.mpvpe = sum(mpvpe) / self.dataset_length
+            self.mpjpe_x = sum(error_x) / self.dataset_length
+            self.mpjpe_y = sum(error_y) / self.dataset_length
+            self.mpjpe_z = sum(error_z) / self.dataset_length
             
             if self.eval_mpvpe:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f} MPVPE: {self.mpvpe:.2f}')
             else:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f}')
+            
+            logger.info(f'>> {eval_prefix} MPJPE_X: {self.mpjpe_x:.2f}, MPJPE_Y: {self.mpjpe_y:.2f}, MPJPE_Z: {self.mpjpe_z:.2f}')
 
 
     def test_hand(self, epoch, current_model=None):
@@ -656,6 +664,22 @@ class Tester:
             pa_mpjpe.append(eval_pa_mpjpe(pred[j], target[j]))
         
         return mpjpe, pa_mpjpe
+
+    def eval_xyz_joint(self, pred, target):
+        pred, target = pred.copy(), target.copy()
+        batch_size = pred.shape[0]
+        
+        pred, target = pred - pred[:, None, smpl.h36m_root_joint_idx, :], target - target[:, None, smpl.h36m_root_joint_idx, :]
+        pred, target = pred[:, smpl.h36m_eval_joints, :], target[:, smpl.h36m_eval_joints, :]
+        
+        error_x, error_y, error_z = [], [], []
+        for j in range(batch_size):
+            err_x = np.mean(np.sqrt(( pred[j][:,0] - target[j][:,0]) ** 2))
+            err_y = np.mean(np.sqrt(( pred[j][:,1] - target[j][:,1]) ** 2))
+            err_z = np.mean(np.sqrt(( pred[j][:,2] - target[j][:,2]) ** 2))
+            error_x.append(err_x); error_y.append(err_y); error_z.append(err_z)
+        
+        return error_x, error_y, error_z 
     
     
     def eval_mesh(self, pred, target, pred_joint_cam, gt_joint_cam):
