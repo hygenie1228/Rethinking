@@ -188,7 +188,7 @@ class Trainer:
                                                 f'joint_cont loss: {loss1:.4f}')
             
             # visualize
-            if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
+            if cfg.TRAIN.vis and i == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])

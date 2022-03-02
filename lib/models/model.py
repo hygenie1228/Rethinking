@@ -39,7 +39,6 @@ class Model(nn.Module):
 
     def forward_contrastive(self, inp_img, meta_hm):
         img_feat = self.backbone(inp_img)
-        img_feat = self.head(img_feat)
 
         # hm normalization
         meta_hm = meta_hm.clone()
@@ -51,6 +50,8 @@ class Model(nn.Module):
 
         batch_size, joint_num, _ = joint_feat.shape
         joint_feat = joint_feat.view(batch_size*joint_num, -1)
+
+        joint_feat = self.head(joint_feat)
 
         joint_feat = F.normalize(joint_feat, dim=1)
         joint_feat = joint_feat.view(batch_size, joint_num, -1)
@@ -162,7 +163,7 @@ def get_model(is_train):
         
 
     if cfg.MODEL.type == 'contrastive':
-        head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=cfg.MODEL.projector_out_dim, kernel_size=1, stride=1,padding=0)
+        head = Projector(backbone_out_dim,cfg.MODEL.projector_hidden_dim,cfg.MODEL.projector_out_dim)
     elif cfg.MODEL.type == '2d_joint':
         head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == 'body':
@@ -178,6 +179,8 @@ def get_model(is_train):
             logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
             transfer_backbone(backbone, cfg.MODEL.weight_path)
         else:
+            logger.info("@!#!@#")
+            pretrained = ''
             backbone.init_weights(pretrained)
             
         head.apply(init_weights)

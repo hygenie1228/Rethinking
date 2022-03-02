@@ -9,7 +9,7 @@ from human_models import smpl, coco
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.projection_head = make_linear_layers([in_dim,hidden_dim,out_dim], relu_final=False, use_bn=True)
+        self.projection_head = make_linear_layers([in_dim,hidden_dim,out_dim], relu_final=False, use_bn=False)
 
     def forward(self, joint_feat):
         joint_feat = self.projection_head(joint_feat)
