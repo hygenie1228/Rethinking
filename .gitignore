@@ -200,3 +200,5 @@ fabric.properties
 # Editor-based Rest Client
 .idea/httpRequests
 
+experiment/
+data/PW3D/data/

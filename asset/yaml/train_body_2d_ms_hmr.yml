@@ -1,6 +1,6 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MSCOCO']   
+    train_list: ['MSCOCO', 'Human36M']   
     #train_partition: [1.0]
     # PW3D  
     test_list: ['PW3D']   
@@ -14,11 +14,11 @@ MODEL:
     backbone: 'resnet50'
     regressor: 'hmr'
     use_upsampling_layer: False
-    weight_path: 'experiment/exp_02-10_13:47/checkpoints/final.ckpt'
+    #weight_path: 'experiment/exp_02-10_13:47/checkpoints/final.ckpt'
     input_img_shape: [256, 192]
 
 TRAIN:
-    transfer_backbone: True
+    transfer_backbone: False
     freeze_backbone: False
     batch_size: 128
     shuffle: True 
