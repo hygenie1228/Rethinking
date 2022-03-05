@@ -314,15 +314,17 @@ class Trainer:
             tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
             meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
             
-            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape = self.model(inp_img)
+            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, pred_joint_img = self.model(inp_img)
 
             loss1 = self.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
             loss2 = self.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:,:,None])
             loss3 = self.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
             loss4 = self.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
             loss5 = self.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
-            #loss6 = self.prior_loss_weight * self.loss['prior'](pred_smpl_pose[:,3:], pred_smpl_shape)
-            loss6 = torch.tensor(0).cuda()
+            if cfg.MODEL.regressor == 'pose2pose':
+                loss6 = self.proj_loss_weight * self.loss['joint_proj'](pred_joint_img, tar_joint_img, meta_joint_valid)
+            else:
+                loss6 = torch.tensor(0).cuda()
             loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
             
             # update weights

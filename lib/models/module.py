@@ -5,6 +5,9 @@ from torch.nn import functional as F
 
 from models import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d, KeypointAttention
 from human_models import smpl, coco
+from core.config import cfg
+
+from funcs_utils import soft_argmax_3d
 
 class PAREHead(nn.Module):
     def __init__(self, in_dim, pose_feat_dim, shape_feat_dim):
@@ -90,6 +93,87 @@ class HMRHead(nn.Module):
             pred_cam = self.deccam(xc) + pred_cam
 
         return pred_pose, pred_shape, pred_cam
+
+
+class Pose2PoseHead(nn.Module):
+    def __init__(self, in_dim, hidden_dim=1024, smpl_mean_params='', n_iter=3):
+        super().__init__()            
+        self.position_net = PositionNet()
+        self.rotation_net = RotationNet()
+        
+    def forward(self, features):
+        batch_size = features.shape[0]
+
+        joint_hm, joint_img = self.position_net(features)
+        root_pose_6d, pose_param_6d, pred_shape, pred_cam = self.rotation_net(features, joint_img)
+
+        pred_pose = torch.cat([root_pose_6d, pose_param_6d], dim=1)
+        return pred_pose, pred_shape, pred_cam, joint_img[:,:,:2]
+
+
+class PositionNet(nn.Module):
+    def __init__(self):
+        super(PositionNet, self).__init__()
+        self.joint_num = smpl.joint_num
+        self.hidden_dim = 8
+        self.conv = make_conv_layers([2048,self.joint_num*self.hidden_dim], kernel=1, stride=1, padding=0, bnrelu_final=False)
+
+    def forward(self, img_feat):
+        joint_hm = self.conv(img_feat).view(-1,self.joint_num,self.hidden_dim,cfg.MODEL.img_feat_shape[0],cfg.MODEL.img_feat_shape[1])
+        joint_coord = soft_argmax_3d(joint_hm)
+        joint_hm = F.softmax(joint_hm.view(-1,self.joint_num,self.hidden_dim*cfg.MODEL.img_feat_shape[0]*cfg.MODEL.img_feat_shape[1]),2)
+        joint_hm = joint_hm.view(-1,self.joint_num,self.hidden_dim,cfg.MODEL.img_feat_shape[0],cfg.MODEL.img_feat_shape[1])
+        return joint_hm, joint_coord
+
+
+class RotationNet(nn.Module):
+    def __init__(self):
+        super(RotationNet, self).__init__()
+        self.joint_num = smpl.joint_num
+       
+        # output layers
+        self.conv = make_conv_layers([2048,512], kernel=1, stride=1, padding=0)
+        self.root_pose_out = make_linear_layers([self.joint_num*(512+3), 6], relu_final=False)
+        self.pose_out = make_linear_layers([self.joint_num*(512+3), (smpl.joint_num-1)*6], relu_final=False)
+        self.shape_out = make_linear_layers([2048,smpl.shape_param_dim], relu_final=False)
+        self.cam_out = make_linear_layers([2048,3], relu_final=False)
+        
+
+    def sample_image_feature_joint(self, img_feat, joint_xy):
+        joint_num = joint_xy.shape[1]
+        img_feat_joints = []
+        for j in range(joint_num):
+            img_feat_joints.append(self.sample_image_feature(img_feat, joint_xy[:,j,:]))
+        img_feat_joints = torch.stack(img_feat_joints,1)
+        return img_feat_joints
+
+    def sample_image_feature(self, img_feat, xy):
+        height, width = img_feat.shape[2:]
+        x = xy[:,0] / (width-1) * 2 - 1
+        y = xy[:,1] / (height-1) * 2 - 1
+        grid = torch.stack((x,y),1)[:,None,None,:]
+        img_feat = F.grid_sample(img_feat, grid, align_corners=True)[:,:,0,0] # (batch_size, channel_dim)
+        return img_feat
+
+    def forward(self, img_feat, joint_coord_img):
+        batch_size = img_feat.shape[0]
+
+        # shape parameter
+        shape_param = self.shape_out(img_feat.mean((2,3)))
+
+        # camera parameter
+        cam_param = self.cam_out(img_feat.mean((2,3)))
+        
+        # pose parameter
+        img_feat = self.conv(img_feat)
+        img_feat_joints = self.sample_image_feature_joint(img_feat, joint_coord_img)
+        feat = torch.cat((img_feat_joints, joint_coord_img),2)
+
+        root_pose = self.root_pose_out(feat.view(batch_size,-1))
+        pose_param = self.pose_out(feat.view(batch_size,-1))
+
+        return root_pose, pose_param, shape_param, cam_param
+
 
 
 class Projector(nn.Module):

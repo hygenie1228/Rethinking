@@ -5,7 +5,7 @@ import math
 import copy
 import os.path as osp
 
-from models import PoseResNet, PoseHighResolutionNet, Projector, PAREHead, HMRHead, HeatmapPredictor
+from models import PoseResNet, PoseHighResolutionNet, Projector, PAREHead, HMRHead, HeatmapPredictor, Pose2PoseHead
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
@@ -69,13 +69,17 @@ class Model(nn.Module):
         batch_size = inp_img.shape[0]
         img_feat = self.backbone(inp_img)
 
-        smpl_pose, smpl_shape, cam_trans = self.head(img_feat)
-
+        if cfg.MODEL.regressor == 'pose2pose':
+            smpl_pose, smpl_shape, cam_trans, pred_joint_img = self.head(img_feat)
+        else:
+            smpl_pose, smpl_shape, cam_trans  = self.head(img_feat)
+            pred_joint_img = None
+        
         smpl_pose = rot6d_to_axis_angle(smpl_pose.reshape(-1,6)).reshape(batch_size,-1)
         cam_trans = self.get_camera_trans(cam_trans)
-        joint_proj, joint_cam, mesh_cam = self.get_coord(smpl_pose[:,:3], smpl_pose[:,3:], smpl_shape, cam_trans)
+        joint_proj, joint_cam, mesh_cam= self.get_coord(smpl_pose[:,:3], smpl_pose[:,3:], smpl_shape, cam_trans)
         
-        return mesh_cam, joint_cam, joint_proj, smpl_pose, smpl_shape
+        return mesh_cam, joint_cam, joint_proj, smpl_pose, smpl_shape, pred_joint_img
 
 
     def forward_hand(self, inp_img):
@@ -171,6 +175,8 @@ def get_model(is_train):
             head = PAREHead(backbone_out_dim, cfg.MODEL.predictor_pose_feat_dim, cfg.MODEL.predictor_shape_feat_dim)
         elif cfg.MODEL.regressor == 'hmr':
             head = HMRHead(backbone_out_dim, smpl_mean_params=osp.join('data','base_data','smpl_mean_params.npz'))
+        elif cfg.MODEL.regressor == 'pose2pose':
+            head = Pose2PoseHead(backbone_out_dim)
         else:
             assert 0
     elif cfg.MODEL.type == 'hand':

@@ -208,3 +208,25 @@ def soft_argmax_2d(heatmap2d):
 
     coord_out = torch.cat((accu_x, accu_y), dim=2)
     return coord_out
+
+def soft_argmax_3d(heatmap3d):
+    batch_size = heatmap3d.shape[0]
+    depth, height, width = heatmap3d.shape[2:]
+    heatmap3d = heatmap3d.reshape((batch_size, -1, depth*height*width))
+    heatmap3d = F.softmax(heatmap3d, 2)
+    heatmap3d = heatmap3d.reshape((batch_size, -1, depth, height, width))
+
+    accu_x = heatmap3d.sum(dim=(2,3))
+    accu_y = heatmap3d.sum(dim=(2,4))
+    accu_z = heatmap3d.sum(dim=(3,4))
+
+    accu_x = accu_x * torch.arange(width).float().cuda()[None,None,:]
+    accu_y = accu_y * torch.arange(height).float().cuda()[None,None,:]
+    accu_z = accu_z * torch.arange(depth).float().cuda()[None,None,:]
+
+    accu_x = accu_x.sum(dim=2, keepdim=True)
+    accu_y = accu_y.sum(dim=2, keepdim=True)
+    accu_z = accu_z.sum(dim=2, keepdim=True)
+
+    coord_out = torch.cat((accu_x, accu_y, accu_z), dim=2)
+    return coord_out
