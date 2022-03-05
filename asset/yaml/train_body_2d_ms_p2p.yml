@@ -18,7 +18,7 @@ MODEL:
     input_img_shape: [256, 192]
 
 TRAIN:
-    transfer_backbone: False
+    transfer_backbone: True
     freeze_backbone: False
     batch_size: 128
     shuffle: True 
