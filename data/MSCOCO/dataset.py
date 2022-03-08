@@ -88,10 +88,6 @@ class MSCOCO(BaseDataset):
                 smpl_param = None
                 cam_param = None
 
-            if self.data_split == 'train' and cfg.DATASET.do_subsampling:
-                sampling_idx += 1
-                if sampling_idx%10 != 0: continue
-
             datalist.append({
                 'ann_id': aid,
                 'img_id': image_id,
@@ -103,5 +99,13 @@ class MSCOCO(BaseDataset):
                 'smpl_param': smpl_param,
                 'cam_param': cam_param
                 })
+
+        if self.data_split == 'train' and cfg.DATASET.do_subsampling:
+            idxs = np.arange(len(datalist))
+            idxs = np.random.choice(idxs, int(len(idxs)*0.3), replace=False)
+            new_datalist = []
+            for i in range(len(datalist)):
+                if i in idxs: new_datalist.append(datalist[i])
+            datalist = new_datalist
 
         return datalist

@@ -12,6 +12,7 @@ from core.config import cfg
 from coord_utils import world2cam, cam2pixel, process_bbox
 from base_dataset import BaseDataset
 
+
 class Human36M(BaseDataset):
     def __init__(self, transform, data_split):
         super(Human36M, self).__init__()
@@ -84,7 +85,6 @@ class Human36M(BaseDataset):
         
         db.createIndex()
         
-        sampling_idx = 0
         datalist = []
         for aid in db.anns.keys():
             ann = db.anns[aid]
@@ -126,10 +126,6 @@ class Human36M(BaseDataset):
             joint_img = cam2pixel(joint_cam, f, c)[:,:2]
             joint_valid = np.ones((self.joint_set['joint_num'],))
             
-            if self.data_split == 'train' and cfg.DATASET.do_subsampling:
-                sampling_idx += 1
-                if sampling_idx%10 != 0: continue
-
             datalist.append({
                 'ann_id': aid,
                 'img_id': image_id,
@@ -142,5 +138,13 @@ class Human36M(BaseDataset):
                 'smpl_param': smpl_param,
                 'cam_param': cam_param
                 })
+
+        if self.data_split == 'train' and cfg.DATASET.do_subsampling:
+            idxs = np.arange(len(datalist))
+            idxs = np.random.choice(idxs, int(len(idxs)*0.3), replace=False)
+            new_datalist = []
+            for i in range(len(datalist)):
+                if i in idxs: new_datalist.append(datalist[i])
+            datalist = new_datalist
 
         return datalist
