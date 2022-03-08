@@ -1,0 +1,1 @@
+from .dataset import InstaVariety as dataset

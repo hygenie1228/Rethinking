@@ -11,7 +11,7 @@ from collections import Counter
 from core.config import cfg
 from core.logger import logger
 
-import MSCOCO.dataset, MPII.dataset, PW3D.dataset, Human36M.dataset, MPI_INF_3DHP.dataset
+import MSCOCO.dataset, MPII.dataset, PW3D.dataset, Human36M.dataset, MPI_INF_3DHP.dataset, InstaVariety.dataset
 from models import get_model
 from multiple_datasets import MultipleDatasets
 from core.loss import get_loss
