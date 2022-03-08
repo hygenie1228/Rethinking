@@ -9,54 +9,36 @@ import copy
 from pycocotools.coco import COCO
 
 from core.config import cfg
-from coord_utils import process_bbox, add_pelvis_and_neck
+from coord_utils import process_bbox
 from base_dataset import BaseDataset
 
 
-class MSCOCO(BaseDataset):
+class InstaVariety(BaseDataset):
     def __init__(self, transform, data_split):
         self.transform = transform
         self.data_split = data_split
-        if self.data_split == 'train':
-            self.img_dir = osp.join('data', 'MSCOCO', 'images', 'train2017')
-        else:
-            self.img_dir = osp.join('data', 'MSCOCO', 'images', 'val2017')
-        self.annot_path = osp.join('data', 'MSCOCO', 'annotations')
 
-        self.orig_joint_set = {
-            'name': 'MSCOCO',
-            'joint_num': 17,
-            'joints_name': ('Nose', 'L_Eye', 'R_Eye', 'L_Ear', 'R_Ear', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow', 'L_Wrist', 'R_Wrist', 'L_Hip', 'R_Hip', 'L_Knee', 'R_Knee', 'L_Ankle', 'R_Ankle'),
-            'flip_pairs': ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16)),
-            'skeleton': ((15, 13), (13, 11), (16, 14), (14, 12), (11, 12),(5, 11), (6, 12), (5, 6), (5, 7), (6, 8), (7, 9), (8, 10), (1, 2), (0, 1), (0, 2), (1, 3), (2, 4), (3, 5), (4, 6))
-        }
+        self.img_dir = osp.join('data', 'InstaVariety', 'images')
+        self.annot_path = osp.join('data', 'InstaVariety', 'annotations')
 
         self.joint_set = {
-            'name': 'MSCOCO',
-            'joint_num': 19,
-            'joints_name': ('Nose', 'L_Eye', 'R_Eye', 'L_Ear', 'R_Ear', 'L_Shoulder', 'R_Shoulder', 'L_Elbow', 'R_Elbow', 'L_Wrist', 'R_Wrist', 'L_Hip', 'R_Hip', 'L_Knee', 'R_Knee', 'L_Ankle', 'R_Ankle', 'Pelvis', 'Neck'),
-            'flip_pairs': ((1, 2), (3, 4), (5, 6), (7, 8), (9, 10), (11, 12), (13, 14), (15, 16)),
-            'skeleton': ((1, 2), (0, 1), (0, 2), (2, 4), (1, 3), (6, 8), (8, 10), (5, 7), (7, 9), (12, 14), (14, 16), (11, 13), (13, 15), (17, 11), (17, 12), (17, 18), (18, 5), (18, 6), (18, 0))
+            'name': 'InstaVariety',
+            'joint_num': 25,
+            'joints_name': ('R_Heel','R_Knee','R_Hip','L_Hip','L_Knee','L_Heel','R_Wrist','R_Elbow','R_Shoulder','L_Shoulder','L_Elbow','L_Wrist','Neck','Head_Top','Nose','L_Eye','R_Eye','L_Ear','R_Ear','L_Big_Toe','R_Big_Toe','L_Small_Toe','R_Small_Toe','L_Ankle','R_Ankle'),
+            'flip_pairs': ((0,5), (1,4), (2,3), (6,11), (7,10), (8,9), (15,16), (17,18), (19,20), (21,22), (23,24)),
+            'skeleton': ((0,1),(1,2),(2,3),(3,4),(4,5),(6,7),(7,8),(8,9),(9,10),(2,8),(3,9),(10,11),(8,12),(9,12),(12,13),(12,14),(14,15),(14,16),(15,17),(16,18),(0,20),(20,22),(5,19),(19,21),(5,23),(0,24))
         }
         
         self.has_joint_cam = False
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
-        
+
         self.datalist = self.load_data()
         
     def load_data(self):
         if self.data_split == 'train':
-            db = COCO(osp.join(self.annot_path, 'coco_wholebody_train_v1.0.json'))
+            db = COCO(osp.join(self.annot_path, 'insta_variety_annotations_light_train.json'))
         else:
-            db = COCO(osp.join(self.annot_path, 'coco_wholebody_val_v1.0.json'))
-            
-        if self.has_smpl_param:
-            if self.data_split == 'train':
-                with open(osp.join(self.annot_path, 'MSCOCO_train_SMPL_NeuralAnnot.json')) as f:
-                    smpl_params = json.load(f)
-            else:
-                with open(osp.join(self.annot_path, 'MSCOCO_val_SMPL_NeuralAnnot.json')) as f:
-                    smpl_params = json.load(f)
+            db = COCO(osp.join(self.annot_path, 'insta_variety_annotations_light_test.json'))
         
         sampling_idx = 0
         datalist = []
@@ -66,17 +48,12 @@ class MSCOCO(BaseDataset):
             img = db.loadImgs(image_id)[0]
             img_path = osp.join(self.img_dir, img['file_name'])
             
-            if ann['iscrowd'] or (ann['num_keypoints'] == 0): continue
-            
             bbox = process_bbox(ann['bbox'], img['width'], img['height']) 
             if bbox is None: continue
             
             joint_img = np.array(ann['keypoints'], dtype=np.float32).reshape(-1,3)
             joint_valid = (joint_img[:,2].copy().reshape(-1) > 0).astype(np.float32)
             joint_img = joint_img[:, :2]
-
-            # pre-processing joint_img
-            joint_img, joint_valid = add_pelvis_and_neck(joint_img, joint_valid, self.joint_set['joints_name'])
 
             if self.has_smpl_param:
                 if str(aid) in smpl_params:
@@ -87,10 +64,9 @@ class MSCOCO(BaseDataset):
             else:
                 smpl_param = None
                 cam_param = None
-
-            if self.data_split == 'train' and cfg.DATASET.do_subsampling:
-                sampling_idx += 1
-                if sampling_idx%10 != 0: continue
+            
+            sampling_idx += 1
+            if sampling_idx%3 != 0: continue
 
             datalist.append({
                 'ann_id': aid,
@@ -103,5 +79,5 @@ class MSCOCO(BaseDataset):
                 'smpl_param': smpl_param,
                 'cam_param': cam_param
                 })
-
+        
         return datalist

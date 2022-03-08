@@ -388,7 +388,6 @@ def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
-        loss['img_cont'] = ImageContrastiveLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = JointsMSELoss(use_target_weight=True)
     elif cfg.MODEL.type == 'body':

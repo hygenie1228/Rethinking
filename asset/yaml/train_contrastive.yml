@@ -1,6 +1,6 @@
 DATASET:
     # 'MSCOCO'
-    train_list: ['MSCOCO']    
+    train_list: ['InstaVariety']    
     # PW3D  
     test_list: []
     train_partition: [1.0]
@@ -11,30 +11,28 @@ MODEL:
     type: 'contrastive'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
-    use_upsampling_layer: True
+    use_upsampling_layer: False
     input_img_shape: [256, 192]
-    projector_hidden_dim: 256
-    projector_out_dim: 256
+    projector_hidden_dim: 2048
+    projector_out_dim: 128
 
 TRAIN:      
     transfer_backbone: False
-    batch_size: 64
+    batch_size: 32
     shuffle: True
     begin_epoch: 1
-    end_epoch: 80
-    warmup_epoch: 3
+    end_epoch: 140
     optimizer: 'adam'
     scheduler: 'step' 
-    lr: 0.001
-    min_lr: 1.0e-6
-    lr_step: [50, 70]
+    lr: 1.0e-3
+    lr_step: [90, 120]
     lr_factor: 0.1
     print_freq: 10
-    heatmap_sigma: 2.0
-    vis: False
+    heatmap_sigma: 1.0
+    vis: True
 
     contrast_loss_weight: 1.0
-    temperature: 0.01
+    temperature: 0.07
 
 AUG:
     scale_factor: 0.3

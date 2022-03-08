@@ -179,17 +179,12 @@ class RotationNet(nn.Module):
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.projection_head = nn.Sequential(
-            nn.Linear(in_dim, hidden_dim, bias=True),
-            nn.BatchNorm1d(hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, out_dim,bias=False)
-        )   
+        self.projection_head = make_linear_layers([in_dim,hidden_dim,out_dim], relu_final=False, use_bn=False)
 
     def forward(self, joint_feat):
         joint_feat = self.projection_head(joint_feat)
-
         return joint_feat
+
     
 
 class HeatmapPredictor(nn.Module):
