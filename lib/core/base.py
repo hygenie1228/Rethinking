@@ -513,7 +513,7 @@ class Tester:
                 batch_size = inp_img.shape[0]
 
                 # feed-forward
-                pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape = self.model(inp_img)
+                pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, _ = self.model(inp_img)
                 # meter to milimeter
                 pred_mesh_cam, pred_joint_cam = pred_mesh_cam * 1000, pred_joint_cam * 1000
 
