@@ -42,6 +42,9 @@ class MSCOCO(BaseDataset):
         self.has_joint_cam = False
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
         
+        if cfg.DATASET.do_subsampling:
+            self.subsampling_list = np.load(f'data/MSCOCO/subsampling_{str(cfg.DATASET.subsampling_ratio)}.npy')
+
         self.datalist = self.load_data()
         
     def load_data(self):
@@ -61,6 +64,9 @@ class MSCOCO(BaseDataset):
         sampling_idx = 0
         datalist = []
         for aid in db.anns.keys():
+            if cfg.DATASET.do_subsampling:
+                if aid not in self.subsampling_list: continue
+
             ann = db.anns[aid]
             image_id = ann['image_id']
             img = db.loadImgs(image_id)[0]

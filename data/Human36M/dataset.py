@@ -32,6 +32,10 @@ class Human36M(BaseDataset):
         
         self.has_joint_cam = True
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
+
+        if cfg.DATASET.do_subsampling:
+            self.subsampling_list = np.load(f'data/Human36M/subsampling_{str(cfg.DATASET.subsampling_ratio)}.npy')
+
         self.datalist = self.load_data()
         
     def get_subsampling_ratio(self):
@@ -87,6 +91,10 @@ class Human36M(BaseDataset):
         
         datalist = []
         for aid in db.anns.keys():
+            if cfg.DATASET.do_subsampling:
+                if aid not in self.subsampling_list: continue
+
+
             ann = db.anns[aid]
             image_id = ann['image_id']
             img = db.loadImgs(image_id)[0]
