@@ -155,5 +155,4 @@ class Human36M(BaseDataset):
                 if i in idxs: new_datalist.append(datalist[i])
             datalist = new_datalist'''
 
-        import pdb; pdb.set_trace()
         return datalist

@@ -192,6 +192,7 @@ def get_model(is_train):
             logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
             transfer_backbone(backbone, cfg.MODEL.weight_path)
         else:
+            #pretrained = ''
             logger.info("trained from" + pretrained)
             backbone.init_weights(pretrained)
             
