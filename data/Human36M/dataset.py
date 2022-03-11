@@ -147,12 +147,13 @@ class Human36M(BaseDataset):
                 'cam_param': cam_param
                 })
 
-        if self.data_split == 'train' and cfg.DATASET.do_subsampling:
+        '''if self.data_split == 'train' and cfg.DATASET.do_subsampling:
             idxs = np.arange(len(datalist))
             idxs = np.random.choice(idxs, int(len(idxs)*cfg.DATASET.subsampling_ratio), replace=False)
             new_datalist = []
             for i in range(len(datalist)):
                 if i in idxs: new_datalist.append(datalist[i])
-            datalist = new_datalist
+            datalist = new_datalist'''
 
+        import pdb; pdb.set_trace()
         return datalist
