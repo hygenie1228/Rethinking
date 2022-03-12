@@ -1,11 +1,11 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MSCOCO', 'Human36M']   
+    train_list: ['MSCOCO']   
     #train_partition: [1.0]
     # PW3D  
     test_list: ['PW3D']   
     make_same_len: True    
-    workers: 16
+    workers: 0
 
 MODEL:
     # 'contrastive', 'body', 'hand', '2d_joint'

@@ -7,7 +7,7 @@ DATASET:
     make_same_len: True    
     workers: 16
     do_subsampling: True
-    subsampling_ratio: 0.6
+    subsampling_ratio: 0.3
 
 MODEL:
     # 'contrastive', 'body', 'hand', '2d_joint'
@@ -24,11 +24,11 @@ TRAIN:
     batch_size: 128
     shuffle: True 
     begin_epoch: 1
-    end_epoch: 120
+    end_epoch: 240
     optimizer: 'adam'
     scheduler: 'step'
     lr: 1.0e-4
-    lr_step: [90]
+    lr_step: [180]
     lr_factor: 0.1
     print_freq: 10
     use_pseudo_GT: True
