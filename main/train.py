@@ -2,9 +2,8 @@ import os
 import argparse
 import torch
 import numpy as np
-import __init_path
-import shutil
 
+import __init_path
 from funcs_utils import save_checkpoint, check_data_parallel
 from core.config import cfg, update_config
 from core.logger import logger

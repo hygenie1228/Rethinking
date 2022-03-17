@@ -19,7 +19,7 @@ cfg.cur_dir = osp.dirname(os.path.abspath(__file__))
 cfg.root_dir = osp.join(cfg.cur_dir, '../../')
 cfg.data_dir = osp.join(cfg.root_dir, 'data')
 KST = datetime.timezone(datetime.timedelta(hours=9))
-save_folder = 'exp_' + str(datetime.datetime.now(tz=KST))[5:-16]
+save_folder = 'exp_' + str(datetime.datetime.now(tz=KST))[5:-13]
 save_folder = save_folder.replace(" ", "_")
 save_folder_path = 'experiment/{}'.format(save_folder)
 
@@ -133,5 +133,3 @@ def update_config(config_file):
                         cfg[k] = v
             else:
                 raise ValueError("{} not exist in config.py".format(k))
-
-

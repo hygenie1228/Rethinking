@@ -17,11 +17,5 @@ add_path(lib_path)
 util_path = osp.join(this_dir, '..', 'lib', 'utils')
 add_path(util_path)
 
-smpl_path = osp.join(this_dir, '..', 'lib', 'smplpytorch')
-add_path(smpl_path)
-
-densepose_path = osp.join(this_dir, '..', 'lib', 'densepose')
-add_path(densepose_path)
-
 data_path = osp.join(this_dir, '..', 'data')
 add_path(data_path)

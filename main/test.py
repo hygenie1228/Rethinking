@@ -2,7 +2,6 @@ import os
 import argparse
 import numpy as np
 import torch
-import shutil
 import __init_path
 
 from core.config import update_config, cfg

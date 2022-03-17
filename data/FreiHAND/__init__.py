@@ -1,1 +1,0 @@
-from .dataset import FreiHand as dataset

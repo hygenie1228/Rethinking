@@ -1,3 +1,4 @@
+import sys
 import os.path as osp
 import numpy as np
 from tqdm import tqdm
@@ -11,15 +12,19 @@ from collections import Counter
 from core.config import cfg
 from core.logger import logger
 
-import MSCOCO.dataset, MPII.dataset, PW3D.dataset, Human36M.dataset, MPI_INF_3DHP.dataset
-from models import get_model
 from multiple_datasets import MultipleDatasets
+from models import get_model
 from core.loss import get_loss
 from coord_utils import get_max_preds, flip_back
 from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
 from eval_utils import eval_mpjpe, eval_pa_mpjpe, calc_dists, dist_acc
 from vis_utils import save_plot
 from human_models import smpl, coco
+
+for dataset in cfg.DATASET.train_list+cfg.DATASET.test_list:
+    path = osp.join(cfg.data_dir, dataset)
+    if path not in sys.path: sys.path.insert(0, path)
+    exec(f'from dataset import {dataset}')
 
 
 def get_dataloader(dataset_names, is_train):
@@ -35,7 +40,7 @@ def get_dataloader(dataset_names, is_train):
                         transforms.ToTensor(),
                         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
         
-        dataset = eval(f'{name}.dataset')(transform, dataset_split.lower())
+        dataset = eval(f'{name}')(transform, dataset_split.lower())
         logger.info(f"# of {dataset_split} {name} data: {len(dataset)}")
         dataset_list.append(dataset)
     
