@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from models import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d, KeypointAttention
+from models.layer import make_linear_layers, make_conv_layers, make_deconv_layers, LocallyConnected2d, KeypointAttention
 from human_models import smpl, coco
 from core.config import cfg
 

@@ -1,1 +1,0 @@
-from .dataset import MPI_INF_3DHP as dataset

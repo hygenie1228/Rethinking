@@ -5,7 +5,9 @@ import math
 import copy
 import os.path as osp
 
-from models import PoseResNet, PoseHighResolutionNet, Projector, PAREHead, HMRHead, HeatmapPredictor, Pose2PoseHead
+from models.resnet import PoseResNet
+from models.hrnet import PoseHighResolutionNet
+from models.module import Projector, PAREHead, HMRHead, HeatmapPredictor, Pose2PoseHead
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
@@ -24,7 +26,6 @@ class Model(nn.Module):
         else:
             self.trainable_modules = [self.backbone, self.head]
         
-
     def forward(self, inp_img, meta_hm=None, meta_valid=None):
         if cfg.MODEL.type == 'contrastive':
             return self.forward_contrastive(inp_img, meta_hm)
@@ -186,7 +187,6 @@ def get_model(is_train):
     else:
         assert 0
     
-    
     if is_train:
         if cfg.TRAIN.transfer_backbone:
             logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
@@ -200,7 +200,6 @@ def get_model(is_train):
             
     model = Model(backbone, head)
     return model
-
 
 def transfer_backbone(backbone, weight_path):   
     checkpoint = load_checkpoint(load_dir=weight_path)

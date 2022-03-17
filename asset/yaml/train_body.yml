@@ -1,9 +1,9 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MSCOCO', 'Human36M']   
+    train_list: ['MSCOCO']   
     #train_partition: [1.0]
     # PW3D  
-    test_list: ['PW3D']   
+    test_list: []   
     make_same_len: True    
     workers: 16
 
@@ -17,7 +17,7 @@ MODEL:
     input_img_shape: [256, 192]
 
 TRAIN:
-    transfer_backbone: True
+    transfer_backbone: False
     freeze_backbone: False
     batch_size: 128
     shuffle: True 
