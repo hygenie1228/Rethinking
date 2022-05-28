@@ -7,6 +7,7 @@ import os.path as osp
 import json
 import copy
 import cv2
+import pickle
 
 from torch.utils.data import Dataset
 
@@ -19,6 +20,14 @@ from human_models import smpl, coco
 
 from vis_utils import vis_keypoints, vis_keypoints_with_skeleton, vis_3d_pose, vis_heatmaps, save_obj
 
+'''with open('data/AGORA/data/./gt_verts/smpl/131971.json') as f:
+    data = json.load(f)
+
+data = np.array(data)
+
+save_obj(data, smpl.face, 'debug.obj')
+import pdb; pdb.set_trace()'''
+
 
 class BaseDataset(Dataset):
     def __init__(self):
@@ -28,6 +37,7 @@ class BaseDataset(Dataset):
         self.has_smpl_param = False
         
     def __len__(self):
+        return 2048*16
         return len(self.datalist)
 
     def __getitem__(self, index):
@@ -91,10 +101,10 @@ class BaseDataset(Dataset):
         img_2 = self.transform(img_2.astype(np.float32))
         
         # convert joint set
-        hm_1 = transform_joint_to_other_db(hm_1, self.joint_set['joints_name'], coco.joints_name)
-        hm_2 = transform_joint_to_other_db(hm_2, self.joint_set['joints_name'], coco.joints_name)
-        joint_valid_1 = transform_joint_to_other_db(joint_valid_1, self.joint_set['joints_name'], coco.joints_name)
-        joint_valid_2 = transform_joint_to_other_db(joint_valid_2, self.joint_set['joints_name'], coco.joints_name)
+        hm_1 = transform_joint_to_other_db(hm_1,  coco.orig_joints_name, coco.joints_name)
+        hm_2 = transform_joint_to_other_db(hm_2,  coco.orig_joints_name, coco.joints_name)
+        joint_valid_1 = transform_joint_to_other_db(joint_valid_1,  coco.orig_joints_name, coco.joints_name)
+        joint_valid_2 = transform_joint_to_other_db(joint_valid_2, coco.orig_joints_name, coco.joints_name)
         
         batch = {
             'img': [img_1, img_2],
@@ -131,9 +141,15 @@ class BaseDataset(Dataset):
         '''
 
         img = self.transform(img.astype(np.float32))
-        joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], coco.joints_name)
-        hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], coco.joints_name)
-        joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], coco.joints_name) 
+        if self.joint_set['name'] == 'MPII':
+            joint_img = transform_joint_to_other_db(joint_img, coco.orig_joints_name, coco.joints_name)
+            hm = transform_joint_to_other_db(hm, coco.orig_joints_name, coco.joints_name)
+            joint_valid = transform_joint_to_other_db(joint_valid, coco.orig_joints_name, coco.joints_name) 
+        else:
+            joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], coco.joints_name)
+            hm = transform_joint_to_other_db(hm, self.joint_set['joints_name'], coco.joints_name)
+            joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['joints_name'], coco.joints_name) 
+
 
         if self.data_split == 'train':
             batch = {
@@ -155,6 +171,32 @@ class BaseDataset(Dataset):
         
         img_path = data['img_path']
         img = load_img(img_path)
+
+        if self.joint_set['name'] == 'AGORA':
+            bbox = data['bbox']
+            img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
+            with open(data['verts_path']) as f:
+                mesh_cam = json.load(f)
+            
+            mesh_cam = np.array(mesh_cam)
+            joint_cam = np.dot(smpl.h36m_joint_regressor, mesh_cam)
+            root_cam = joint_cam[smpl.h36m_root_joint_idx]
+            joint_cam = joint_cam - root_cam
+            mesh_cam = mesh_cam - root_cam
+
+            # save_obj(mesh_cam, smpl.face, osp.join(cfg.vis_dir, f'debug_{index}_mesh_cam.obj'))
+            # meter to milimeter
+            mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
+            
+            img = self.transform(img.astype(np.float32))
+
+            batch = {
+                'img': img,
+                'joint_cam': joint_cam,
+                'mesh_cam': mesh_cam
+            }
+        
+            return batch
 
         bbox, joint_img, joint_valid = data['bbox'], data['joint_img'], data['joint_valid']
         
@@ -232,6 +274,7 @@ class BaseDataset(Dataset):
                
             batch = {
                 'img': img,
+                'bbox': bbox,
                 'joint_cam': joint_cam,
                 'mesh_cam': mesh_cam
             }

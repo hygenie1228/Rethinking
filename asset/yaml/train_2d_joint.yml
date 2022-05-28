@@ -1,5 +1,5 @@
 DATASET:
-    train_list: ['MSCOCO']    
+    train_list: ['MPII']    
     test_list: ['MSCOCO']               
     workers: 16
 
@@ -16,16 +16,16 @@ TRAIN:
     batch_size: 128
     shuffle: True 
     begin_epoch: 1
-    end_epoch: 80
+    end_epoch: 140
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.001
     min_lr: 1.0e-6
-    lr_step: [50, 70]
+    lr_step: [90, 120]
     lr_factor: 0.1
     print_freq: 10
     heatmap_sigma: 2.0
-    vis: False
+    vis: True
 
     hm_loss_weight: 1.0
 

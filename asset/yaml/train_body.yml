@@ -1,6 +1,6 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MSCOCO']   
+    train_list: ['MPII']   
     #train_partition: [1.0]
     # PW3D  
     test_list: []   
@@ -39,10 +39,10 @@ TRAIN:
     prior_loss_weight: 0.0
     
 AUG:
-    scale_factor: 0.25
-    rot_factor: 30
-    color_factor: 0.2
-    flip: True
+    scale_factor: 0
+    rot_factor: 0
+    color_factor: 0.0
+    flip: False
 
 TEST:
     batch_size: 32

@@ -1,6 +1,6 @@
 DATASET:
     # 'MSCOCO'
-    train_list: ['InstaVariety']    
+    train_list: ['MPII']    
     # PW3D  
     test_list: []
     train_partition: [1.0]

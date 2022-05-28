@@ -21,6 +21,8 @@ from eval_utils import eval_mpjpe, eval_pa_mpjpe, calc_dists, dist_acc
 from vis_utils import save_plot
 from human_models import smpl, coco
 
+from renderer import render_mesh
+
 for dataset in cfg.DATASET.train_list+cfg.DATASET.test_list:
     exec(f'from {dataset}.dataset import {dataset}')
 
@@ -189,7 +191,7 @@ class Trainer:
                                                 f'joint_cont loss: {loss1:.4f}')
             
             # visualize
-            if cfg.TRAIN.vis and i == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//6) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
@@ -258,7 +260,7 @@ class Trainer:
                                                 f'hm loss: {loss1:.4f}')
             
             # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//4) == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//6) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 
@@ -310,81 +312,7 @@ class Trainer:
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
-            inp_img = batch['img'].cuda()
-            tar_joint_img, tar_joint_cam, tar_smpl_joint_cam = batch['joint_img'].cuda(), batch['joint_cam'].cuda(), batch['smpl_joint_cam'].cuda()
-            tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
-            meta_joint_valid, meta_has_3D, meta_has_param = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda()
-            
-            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, pred_joint_img = self.model(inp_img)
-
-            loss1 = self.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
-            loss2 = self.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:,:,None])
-            loss3 = self.proj_loss_weight * self.loss['joint_proj'](pred_joint_proj, tar_joint_img, meta_joint_valid)
-            loss4 = self.pose_loss_weight * self.loss['pose_param'](pred_smpl_pose, tar_pose, meta_has_param)
-            loss5 = self.shape_loss_weight * self.loss['shape_param'](pred_smpl_shape, tar_shape, meta_has_param)
-            if cfg.MODEL.regressor == 'pose2pose':
-                loss6 = self.proj_loss_weight * self.loss['joint_proj'](pred_joint_img, tar_joint_img, meta_joint_valid)
-            else:
-                loss6 = torch.tensor(0).cuda()
-            loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
-            
-            # update weights
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-            # log
-            loss, loss1, loss2, loss3, loss4, loss5, loss6 = loss.detach(), loss1.detach(), loss2.detach(), loss3.detach(), loss4.detach(), loss5.detach(), loss6.detach()
-            running_loss += float(loss.item())
-            running_joint_loss += float(loss1.item())
-            running_smpl_joint_loss += float(loss2.item())
-            running_proj_loss += float(loss3.item())
-            running_pose_param_loss += float(loss4.item())
-            running_shape_param_loss += float(loss5.item())
-            running_prior_loss += float(loss6.item())
-            
-            if i % self.print_freq == 0:
-                batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}) => '
-                                                f'joint: {loss1:.4f} smpl_joint: {loss2:.4f} proj: {loss3:.4f} pose: {loss4:.4f}, shape: {loss5:.4f}, prior: {loss6:.4f}')
-            
-            # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
-                import cv2
-                from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
-                inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
-                
-                pred_joint_proj, pred_joint_cam = pred_joint_proj[0].detach().cpu().numpy(), pred_joint_cam[0].detach().cpu().numpy()
-                tar_joint_img, tar_joint_cam = tar_joint_img[0].cpu().numpy(), tar_joint_cam[0].cpu().numpy()
-                meta_joint_valid, meta_has_3D = meta_joint_valid[0].cpu().numpy(), meta_has_3D[0].cpu().numpy()
-            
-                tmp_img = vis_keypoints_with_skeleton(img, pred_joint_proj, smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred.png'), tmp_img)
-                vis_3d_pose(pred_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_joint_cam_pred.png'))
-                
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img,meta_joint_valid[:,None]],1), smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
-                
-                save_obj(pred_mesh_cam[0].detach().cpu().numpy(), smpl.face, osp.join(cfg.vis_dir, f'train_{i}_mesh_cam_pred.obj'))
-
-                if meta_has_3D > 0:
-                    vis_3d_pose(tar_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_joint_cam_gt.png'), kps_3d_vis=meta_joint_valid)
-
-                if meta_has_param[0] > 0:
-                    tar_pose, tar_shape = tar_pose[0].cpu(), tar_shape[0].cpu()
-                    tar_smpl_joint_cam = tar_smpl_joint_cam[0].cpu().numpy()
-
-                    root_pose, body_pose = tar_pose[:3].reshape(1,-1), tar_pose[3:].reshape(1,-1)
-                    smpl_shape = tar_shape.reshape(1,-1)
-
-                    output = smpl.layer['neutral'](betas=smpl_shape, body_pose=body_pose, global_orient=root_pose)
-                    gt_mesh_cam = output.vertices[0].numpy()
-                    joint_cam = np.dot(smpl.h36m_joint_regressor, gt_mesh_cam)
-                    gt_mesh_cam = gt_mesh_cam - joint_cam[smpl.h36m_root_joint_idx]
-                    
-                    vis_3d_pose(tar_smpl_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_smpl_joint_cam_gt.png'))
-                    save_obj(gt_mesh_cam * 1000, smpl.face, osp.join(cfg.vis_dir, f'train_{i}_mesh_cam_gt.obj'))
+            pass
                     
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator)) 
@@ -414,7 +342,7 @@ class Tester:
             self.val_loader = self.val_loader[0]
             self.dataset_length = len(self.val_dataset)
             
-            if self.val_dataset.joint_set['name'] == '3DPW':
+            if self.val_dataset.joint_set['name'] == '3DPW' or self.val_dataset.joint_set['name'] == 'AGORA':
                 self.eval_mpvpe = True
             else:
                 self.eval_mpvpe = False
@@ -507,6 +435,8 @@ class Tester:
         mpjpe, pa_mpjpe, mpvpe = [], [], []
         error_x, error_y, error_z = [], [], []
 
+        error_list = []
+
         eval_prefix = f'Epoch{epoch} ' if epoch else ''
         loader = tqdm(self.val_loader)
         with torch.no_grad():
@@ -529,9 +459,12 @@ class Tester:
                 mpjpe_i, pa_mpjpe_i = self.eval_3d_joint(pred_joint_cam, tar_joint_cam)
                 #error_x_i, error_y_i, error_z_i = self.eval_xyz_joint(pred_joint_cam, tar_joint_cam)
                 #error_x.extend(error_x_i); error_y.extend(error_y_i); error_z.extend(error_z_i)
+
+                error_list.append(mpjpe_i[0])
                 mpjpe.extend(mpjpe_i); pa_mpjpe.extend(pa_mpjpe_i)
                 mpjpe_i, pa_mpjpe_i = sum(mpjpe_i)/batch_size, sum(pa_mpjpe_i)/batch_size
-                
+    
+
                 if self.eval_mpvpe:
                     mpvpe_i = self.eval_mesh(pred_mesh_cam, tar_mesh_cam, pred_joint_cam, tar_joint_cam)
                     mpvpe.extend(mpvpe_i)
@@ -547,17 +480,32 @@ class Tester:
                     import cv2
                     from vis_utils import vis_3d_pose, save_obj
                     
-                    if i % self.vis_freq == 0:
+                    if True:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                         img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                         img = np.ascontiguousarray(img, dtype=np.uint8)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_img.png'), img)
                         
-                        vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
-                        vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
+                        #vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
+                        #vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
                         
                         save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_pred.obj'))
-                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
+                        #save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
+
+                        import copy
+                        gt_bbox = batch['bbox'][0].cpu().numpy()
+                        focal = copy.copy(cfg.CAMERA['focal'])
+                        princpt = copy.copy(cfg.CAMERA['princpt'])
+                        
+                        cam_param = {'focal': focal, 'princpt': princpt}
+                        
+                        pred_rendered_img = render_mesh(img, pred_mesh_cam[0]/1000, smpl.face, cam_param)
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_render.png'), pred_rendered_img)
+
+            with open('4.txt', 'w') as f:
+                for d in error_list:
+                    f.write(f'{d:.2f}\n')
+
                        
             self.mpjpe = sum(mpjpe) / self.dataset_length
             self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length
