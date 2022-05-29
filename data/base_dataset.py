@@ -269,8 +269,9 @@ class BaseDataset(Dataset):
                 # meter to milimeter
                 mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
             else:
-                logger.info("Not support evaluation!")
-                assert 0
+                mesh_cam = np.zeros((smpl.vertex_num, 3))
+                joint_cam = np.zeros((smpl.joint_num, 3))
+               
                
             batch = {
                 'img': img,

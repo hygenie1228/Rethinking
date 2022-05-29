@@ -1,7 +1,7 @@
 DATASET:
     train_list: []    
     # PW3D  
-    test_list: ['PW3D']               
+    test_list: ['MSCOCO']               
     workers: 4
 
 MODEL:
@@ -13,7 +13,7 @@ MODEL:
     input_img_shape: [256, 192]
 
 TEST:
-    batch_size: 16
+    batch_size: 4
     shuffle: False
     vis: True
     vis_freq: 10
