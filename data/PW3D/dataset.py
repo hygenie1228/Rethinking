@@ -53,7 +53,7 @@ class PW3D(BaseDataset):
             image_id = ann['image_id']
             img = db.loadImgs(image_id)[0]
             img_path = osp.join(self.img_dir, img['sequence'], img['file_name'])
-            
+
             bbox = process_bbox(ann['bbox'], img['width'], img['height']) 
             if bbox is None: continue
             
