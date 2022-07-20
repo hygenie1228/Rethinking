@@ -14,6 +14,7 @@ from base_dataset import BaseDataset
 
 class PW3D(BaseDataset):
     def __init__(self, transform, data_split):
+        super(PW3D, self).__init__()
         self.transform = transform
         self.data_split = data_split
         self.img_dir = osp.join('data', 'PW3D', 'data', 'imageFiles')

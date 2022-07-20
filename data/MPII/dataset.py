@@ -35,6 +35,7 @@ def get_bbox(joint_img, joint_valid):
 
 class MPII(BaseDataset):
     def __init__(self, transform, data_split):
+        super(MPII, self).__init__()
         self.transform = transform
         self.data_split = data_split
         if self.data_split == 'train':

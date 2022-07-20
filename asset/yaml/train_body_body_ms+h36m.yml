@@ -1,11 +1,11 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MSCOCO']   
+    train_list: ['MSCOCO', 'Human36M']
     #train_partition: [1.0]
     # PW3D  
     test_list: ['PW3D']   
     make_same_len: True    
-    workers: 0
+    workers: 8
 
 MODEL:
     # 'contrastive', 'body', 'hand', '2d_joint'
@@ -13,7 +13,8 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    weight_path: 'experiment/pretrained_body_ms_long/checkpoints/final.pth.tar'
+    normalize_imagenet: False
+    weight_path: 'experiment/pretrained_densepose_mscoco/checkpoints/snapshot_139.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:

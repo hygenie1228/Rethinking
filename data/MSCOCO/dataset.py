@@ -15,6 +15,7 @@ from base_dataset import BaseDataset
 
 class MSCOCO(BaseDataset):
     def __init__(self, transform, data_split):
+        super(MSCOCO, self).__init__()
         self.transform = transform
         self.data_split = data_split
         if self.data_split == 'train':

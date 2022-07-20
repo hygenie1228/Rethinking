@@ -35,10 +35,12 @@ def get_dataloader(dataset_names, is_train):
 
     logger.info(f"==> Preparing {dataset_split} Dataloader...")
     for name in dataset_names:
-        transform = transforms.Compose([
-                        transforms.ToTensor(),
-                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-        
+        if cfg.MODEL.normalize_imagenet:
+            transform = transforms.Compose([
+                            transforms.ToTensor(),
+                            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        else:
+            transform = transforms.ToTensor()
         dataset = eval(f'{name}')(transform, dataset_split.lower())
         logger.info(f"# of {dataset_split} {name} data: {len(dataset)}")
         dataset_list.append(dataset)
@@ -443,7 +445,7 @@ class Tester:
             for i, batch in enumerate(loader):
                 inp_img = batch['img'].cuda()
                 batch_size = inp_img.shape[0]
-
+                
                 # feed-forward
                 pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, _ = self.model(inp_img)
                 # meter to milimeter

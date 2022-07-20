@@ -35,6 +35,7 @@ class BaseDataset(Dataset):
         self.data_split = None
         self.has_joint_cam = False
         self.has_smpl_param = False
+        self.normalize_imagenet = cfg.MODEL.normalize_imagenet
         
     def __len__(self):
         return len(self.datalist)
@@ -183,7 +184,6 @@ class BaseDataset(Dataset):
             joint_cam = joint_cam - root_cam
             mesh_cam = mesh_cam - root_cam
 
-            # save_obj(mesh_cam, smpl.face, osp.join(cfg.vis_dir, f'debug_{index}_mesh_cam.obj'))
             # meter to milimeter
             mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
             
@@ -233,7 +233,10 @@ class BaseDataset(Dataset):
         '''
         
         if self.data_split == 'train':
-            img = self.transform(img.astype(np.float32))
+            if self.normalize_imagenet:
+                img = self.transform(img.astype(np.float32))
+            else:
+                img = self.transform(img.astype(np.float32))/255.
             
             # convert joint set
             joint_img = transform_joint_to_other_db(joint_img, self.joint_set['joints_name'], smpl.joints_name)

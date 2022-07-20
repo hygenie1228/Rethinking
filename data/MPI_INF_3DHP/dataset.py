@@ -18,6 +18,7 @@ from base_dataset import BaseDataset
 
 class MPI_INF_3DHP(BaseDataset):
     def __init__(self, transform, data_split):
+        super(MPI_INF_3DHP, self).__init__()
         self.transform = transform
         self.data_split = data_split
         if self.data_split == 'train':
