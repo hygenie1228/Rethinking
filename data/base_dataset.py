@@ -37,7 +37,6 @@ class BaseDataset(Dataset):
         self.has_smpl_param = False
         
     def __len__(self):
-        return 2048*16
         return len(self.datalist)
 
     def __getitem__(self, index):

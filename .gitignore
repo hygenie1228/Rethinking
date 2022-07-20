@@ -13,12 +13,12 @@ __pycache__/
 # *.png
 *.jpg
 *.out
+data/base_data
 experiment/
 log/
 data/*/*.json
 data/*/*/*.json
 data/*/images
-data*/data
 data/*/data
 data/*/annotation
 data/*/annotations
