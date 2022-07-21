@@ -113,6 +113,12 @@ class MSCOCO(BaseDataset):
             new_datalist = []
             for i in range(len(datalist)):
                 if i in idxs: new_datalist.append(datalist[i])
-            datalist = new_datalist'''
+            datalist = new_datalist
+        idxs = []
+        for data in datalist:
+            idxs.append(data['ann_id'])
+        np.save(f'./data/MSCOCO/subsampling_{cfg.DATASET.subsampling_ratio:.1f}.npy', np.array(idxs))
+        import pdb; pdb.set_trace()'''
+
 
         return datalist

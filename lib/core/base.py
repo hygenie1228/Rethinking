@@ -356,7 +356,8 @@ class Trainer:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                #img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                img = inp_img[0].cpu().numpy().transpose(1,2,0)[:,:,::-1]* 255
                 img = np.ascontiguousarray(img, dtype=np.uint8)
                 
                 pred_joint_proj, pred_joint_cam = pred_joint_proj[0].detach().cpu().numpy(), pred_joint_cam[0].detach().cpu().numpy()
@@ -554,19 +555,20 @@ class Tester:
                     import cv2
                     from vis_utils import vis_3d_pose, save_obj
                     
-                    if True:
+                    if i % self.vis_freq == 0:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                         img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                         img = np.ascontiguousarray(img, dtype=np.uint8)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_img.png'), img)
                         
-                        #vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
-                        #vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
+                        vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
+                        vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
                         
                         save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_pred.obj'))
-                        #save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
+                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
 
-                        import copy
+                        # render 
+                        '''import copy
                         gt_bbox = batch['bbox'][0].cpu().numpy()
                         focal = copy.copy(cfg.CAMERA['focal'])
                         princpt = copy.copy(cfg.CAMERA['princpt'])
@@ -574,12 +576,7 @@ class Tester:
                         cam_param = {'focal': focal, 'princpt': princpt}
                         
                         pred_rendered_img = render_mesh(img, pred_mesh_cam[0]/1000, smpl.face, cam_param)
-                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_render.png'), pred_rendered_img)
-
-            with open('4.txt', 'w') as f:
-                for d in error_list:
-                    f.write(f'{d:.2f}\n')
-
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_render.png'), pred_rendered_img)'''
                        
             self.mpjpe = sum(mpjpe) / self.dataset_length
             self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length

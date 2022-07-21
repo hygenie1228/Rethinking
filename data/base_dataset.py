@@ -187,7 +187,10 @@ class BaseDataset(Dataset):
             # meter to milimeter
             mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
             
-            img = self.transform(img.astype(np.float32))
+            if self.normalize_imagenet:
+                img = self.transform(img.astype(np.float32))
+            else:
+                img = self.transform(img.astype(np.float32))/255.
 
             batch = {
                 'img': img,
@@ -255,7 +258,10 @@ class BaseDataset(Dataset):
                 'has_param': has_param
             }
         else:
-            img = self.transform(img.astype(np.float32))
+            if self.normalize_imagenet:
+                img = self.transform(img.astype(np.float32))
+            else:
+                img = self.transform(img.astype(np.float32))/255.
 
             if self.joint_set['name'] == 'Human36M':
                 joint_cam = joint_cam - joint_cam[smpl.h36m_root_joint_idx]
