@@ -122,6 +122,7 @@ def vis_3d_pose(kps_3d, kps_line, joint_set_name='', file_path='image.png', ax_i
     if not ax_in:
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
+        #ax.view_init(0, -90)
     else:
         ax = ax_in
 

@@ -14,7 +14,7 @@ MODEL:
     backbone: 'resnet50'
     use_upsampling_layer: False
     normalize_imagenet: False
-    weight_path: 'experiment/pretrained_densepose_mscoco/checkpoints/snapshot_139.pth.tar'
+    weight_path: 'experiment/pretrained_segmentation_mscoco/checkpoints/seg_coco_snapshot_139.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:

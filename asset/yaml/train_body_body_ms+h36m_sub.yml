@@ -5,9 +5,9 @@ DATASET:
     # PW3D  
     test_list: ['PW3D']   
     make_same_len: True    
-    workers: 8
+    workers: 4
     do_subsampling: True
-    subsampling_ratio: 0.1
+    subsampling_ratio: 0.6
 
 
 MODEL:
@@ -16,12 +16,12 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    normalize_imagenet: False
-    weight_path: 'experiment/pretrained_densepose_mscoco/checkpoints/snapshot_139.pth.tar'
+    normalize_imagenet: True
+    weight_path: 'experiment/pretrained_2d_ms_from_scratch/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:
-    transfer_backbone: True
+    transfer_backbone: False
     freeze_backbone: False
     batch_size: 128
     shuffle: True 

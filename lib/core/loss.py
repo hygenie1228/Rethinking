@@ -44,10 +44,8 @@ class ParamLoss(nn.Module):
         self.criterion = nn.L1Loss(reduction='mean')
 
     def forward(self, param_out, param_gt, valid=None):
-        valid = valid.view(-1)
-        
         if self.has_valid:
-            param_out, param_gt = param_out * valid[:,None], param_gt * valid[:,None]
+            param_out, param_gt = param_out * valid, param_gt * valid
         
         loss = self.criterion(param_out, param_gt)
         return loss
@@ -386,9 +384,7 @@ class JointsMSELoss(nn.Module):
 
 def get_loss():
     loss = {}
-    if cfg.MODEL.type == 'contrastive':
-        loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
-    elif cfg.MODEL.type == '2d_joint':
+    if cfg.MODEL.type == '2d_joint':
         loss['hm'] = JointsMSELoss(use_target_weight=True)
     elif cfg.MODEL.type == 'body':
         loss['joint_cam'] = CoordLoss(has_valid=True)

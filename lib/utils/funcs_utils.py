@@ -16,6 +16,17 @@ import torchgeometry as tgm
 from core.config import cfg
 
 
+def convert_focal_princpt(focal, princpt, img2bb_trans):
+    focal = np.array([[focal[0], 0], [0, focal[1]], [0, 0]])
+    princpt = np.array([[princpt[0], 0], [0, princpt[1]], [1, 1]])
+
+    focal = np.dot(img2bb_trans, focal)
+    princpt = np.dot(img2bb_trans, princpt)
+
+    cam_param = np.array([focal[0][0], focal[1][1], princpt[0][0], princpt[1][1]])
+    return cam_param
+
+
 def sample_image_feature(img_feat, xy, width, height):
     x = xy[:,0] / width * 2 - 1
     y = xy[:,1] / height * 2 - 1

@@ -163,7 +163,6 @@ def get_model(is_train):
             cfg.MODEL.img_feat_shape = (cfg.MODEL.input_img_shape[0]//32, cfg.MODEL.input_img_shape[1]//32)
             backbone_out_dim = 2048
         pretrained = 'data/base_data/backbone_models/resnet50-19c8e357.pth'
-        pretrained = ''
     elif cfg.MODEL.backbone == 'hrnetw32':
         backbone = PoseHighResolutionNet(do_upsampling=cfg.MODEL.use_upsampling_layer)
         cfg.MODEL.img_feat_shape = (cfg.MODEL.input_img_shape[0]//4, cfg.MODEL.input_img_shape[1]//4)
@@ -195,7 +194,7 @@ def get_model(is_train):
             logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
             transfer_backbone(backbone, cfg.MODEL.weight_path)
         else:
-            #pretrained = ''
+            pretrained = ''
             logger.info("trained from" + pretrained)
             backbone.init_weights(pretrained)
             

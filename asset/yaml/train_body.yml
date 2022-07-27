@@ -1,11 +1,11 @@
 DATASET:
     # 'Human36M', 'MSCOCO', 'MPII', 'MPI_INF_3DHP', 'PW3D'
-    train_list: ['MPII']   
+    train_list: ['AGORA']   
     #train_partition: [1.0]
     # PW3D  
     test_list: []   
     make_same_len: True    
-    workers: 16
+    workers: 0
 
 MODEL:
     # 'contrastive', 'body', 'hand', '2d_joint'
@@ -19,7 +19,7 @@ MODEL:
 TRAIN:
     transfer_backbone: False
     freeze_backbone: False
-    batch_size: 128
+    batch_size: 32
     shuffle: True 
     begin_epoch: 1
     end_epoch: 30
@@ -30,7 +30,7 @@ TRAIN:
     lr_factor: 0.1
     print_freq: 10
     use_pseudo_GT: True
-    vis: False
+    vis: True
 
     joint_loss_weight: 1.0
     proj_loss_weight: 0.1

@@ -94,7 +94,6 @@ class Human36M(BaseDataset):
             if cfg.DATASET.do_subsampling:
                 if aid not in self.subsampling_list: continue
 
-
             ann = db.anns[aid]
             image_id = ann['image_id']
             img = db.loadImgs(image_id)[0]

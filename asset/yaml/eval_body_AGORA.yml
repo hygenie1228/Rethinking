@@ -1,7 +1,6 @@
 DATASET:
-    train_list: []    
-    # PW3D  
-    test_list: ['PW3D']               
+    train_list: []   
+    test_list: ['AGORA']               
     workers: 4
 
 MODEL:
