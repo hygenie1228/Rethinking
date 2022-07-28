@@ -143,22 +143,7 @@ class BaseDataset(Dataset):
         if do_flip: joint_valid = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         
         if self.has_joint_cam:
-            #joint_cam = coord3D_processing(joint_cam, rot, do_flip, self.joint_set['flip_pairs'])
-
-            ''' tmp_img = img[:,:,::-1]
-            img2 = vis_keypoints(tmp_img, np.concatenate([joint_img,joint_valid[:,None]],1))
-            cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joint_img.png'), img2)
-            
-            from coord_utils import world2cam, cam2pixel, process_bbox
-
-            import pdb; pdb.set_trace()
-            cam_param = convert_focal_princpt(np.array(cfg.CAMERA.focal), np.array([96*2, 128*2]), img2bb_trans)
-
-            joint_img2 = cam2pixel(joint_cam, np.array(cam_param[:2]), np.array(cam_param[2:]))[:,:2]
-            img2 = vis_keypoints(tmp_img, np.concatenate([joint_img2,joint_valid[:,None]],1))
-            cv2.imwrite(osp.join(cfg.vis_dir, f'debug_{index}_joint_img2.png'), img2)
-            '''
-            
+            joint_cam = coord3D_processing(joint_cam, rot, do_flip, self.joint_set['flip_pairs'])
             joint_cam = joint_cam - joint_cam[self.root_joint_idx]
             has_3D = np.array([1])
         else:
