@@ -76,7 +76,7 @@ class PW3D(BaseDataset):
             if self.data_split == 'train' and cfg.DATASET.do_subsampling:
                 sampling_idx += 1
                 if sampling_idx%10 != 0: continue
-            
+
             datalist.append({
                 'ann_id': aid,
                 'img_id': image_id,

@@ -129,9 +129,6 @@ class BaseDataset(Dataset):
             smpl_param = {'pose': smpl_pose, 'shape': shape, 'trans': trans}
             cam_param = {'focal': cfg.CAMERA.focal, 'princpt': cfg.CAMERA..princpt}
 
-
-
-
             mesh_cam = np.array(mesh_cam)
             joint_cam = np.dot(smpl.h36m_joint_regressor, mesh_cam)
             root_cam = joint_cam[smpl.h36m_root_joint_idx]

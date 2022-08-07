@@ -13,8 +13,8 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    normalize_imagenet: False
-    weight_path: 'experiment/pretrained_segmentation_mscoco/checkpoints/seg_coco_snapshot_139.pth.tar'
+    normalize_imagenet: True
+    weight_path: 'experiment/pretrained_agora_from_scratch/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:

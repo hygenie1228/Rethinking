@@ -31,12 +31,12 @@ class MPI_INF_3DHP(BaseDataset):
         self.joint_set = {
             'name': 'MPI_INF_3DHP',
             'joint_num': 17,
-            'joints_name': (('Head_Top', 'Neck', 'R_Shoulder', 'R_Elbow', 'R_Wrist', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Pelvis', 'Torso', 'Head')),
+            'joints_name': (('Head_Top', 'Thorax', 'R_Shoulder', 'R_Elbow', 'R_Wrist', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Pelvis', 'Spine', 'Head')),
             'flip_pairs': ((2, 5), (3, 6), (4, 7), (8, 11), (9, 12), (10, 13)),
             'skeleton': ((0, 16), (16, 1), (1, 2), (2, 3), (3, 4), (1, 5), (5, 6), (6, 7), (1, 15), (15, 14), (14, 8), (8, 9), (9, 10), (14, 11), (11, 12), (12, 13))
         }
         self.root_joint_idx = self.joint_set['joints_name'].index('Pelvis')
-        
+
         self.has_joint_cam = True
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
         

@@ -24,12 +24,12 @@ class Human36M(BaseDataset):
         self.joint_set = {
             'name': 'Human36M',
             'joint_num': 17,
-            'joints_name': ('Pelvis', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Torso', 'Neck', 'Head', 'Head_top', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Shoulder', 'R_Elbow', 'R_Wrist'),
+            'joints_name': ('Pelvis', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Torso', 'Neck', 'Head', 'Head_Top', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Shoulder', 'R_Elbow', 'R_Wrist'),
             'flip_pairs': ((1, 4), (2, 5), (3, 6), (14, 11), (15, 12), (16, 13)),
             'skeleton': ((0, 7), (7, 8), (8, 9), (9, 10), (8, 11), (11, 12), (12, 13), (8, 14), (14, 15), (15, 16), (0, 1), (1, 2), (2, 3), (0, 4), (4, 5), (5, 6))
         }
         self.root_joint_idx = self.joint_set['joints_name'].index('Pelvis')
-        
+
         self.has_joint_cam = True
         self.has_smpl_param = cfg.TRAIN.use_pseudo_GT
 

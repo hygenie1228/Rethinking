@@ -200,6 +200,11 @@ class BaseDataset(Dataset):
 
                 # meter to milimeter
                 mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
+            elif self.joint_set['name'] == 'MuPoTS':
+                joint_cam = joint_cam - joint_cam[self.root_joint_idx]
+                joint_cam = joint_cam * 1000
+                mesh_cam = np.zeros((smpl.vertex_num, 3))
+
             elif self.joint_set['name'] == 'AGORA':
                 mesh_cam = np.array(orig_mesh_cam)
                 joint_cam = np.dot(smpl.h36m_joint_regressor, mesh_cam)

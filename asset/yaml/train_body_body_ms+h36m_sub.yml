@@ -16,12 +16,12 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    normalize_imagenet: True
-    weight_path: 'experiment/pretrained_2d_ms_from_scratch/checkpoints/final.pth.tar'
+    normalize_imagenet: False
+    weight_path: 'experiment/pretrained_segmentation_mscoco/checkpoints/seg_coco_snapshot_139.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:
-    transfer_backbone: False
+    transfer_backbone: True
     freeze_backbone: False
     batch_size: 128
     shuffle: True 
@@ -52,4 +52,4 @@ TEST:
     batch_size: 32
     shuffle: False
     vis: True
-    vis_freq: 200
+    vis_freq: 500

@@ -15,6 +15,7 @@ from core.logger import logger
 from multiple_datasets import MultipleDatasets
 from models.model import get_model
 from core.loss import get_loss
+from aug_utils import transform_joint_to_other_db
 from coord_utils import get_max_preds, flip_back
 from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
 from eval_utils import eval_mpjpe, eval_pa_mpjpe, calc_dists, dist_acc
@@ -342,7 +343,10 @@ class Tester:
             else:
                 self.eval_mpvpe = False
         
-        self.J_regressor = torch.from_numpy(smpl.h36m_joint_regressor).float().cuda()
+        if self.val_dataset.joint_set['name'] == 'MuPoTS':
+            self.J_regressor = torch.from_numpy(self.val_dataset.mpii3d_smpl_regressor).float().cuda()
+        else:
+            self.J_regressor = torch.from_numpy(smpl.h36m_joint_regressor).float().cuda()
 
         self.print_freq = cfg.TRAIN.print_freq
         self.vis_freq = cfg.TEST.vis_freq
@@ -512,10 +516,6 @@ class Tester:
             #logger.info(f'>> {eval_prefix} MPJPE_X: {self.mpjpe_x:.2f}, MPJPE_Y: {self.mpjpe_y:.2f}, MPJPE_Z: {self.mpjpe_z:.2f}')
 
 
-    def test_hand(self, epoch, current_model=None):
-        pass
-
-
     def save_history(self, loss_history, error_history, epoch):
         if cfg.MODEL.type == 'contrastive':
             save_plot(loss_history['contrast_loss'], epoch, title='Contrast Loss')
@@ -596,9 +596,14 @@ class Tester:
         pred, target = pred.copy(), target.copy()
         batch_size = pred.shape[0]
         
-        pred, target = pred - pred[:, None, smpl.h36m_root_joint_idx, :], target - target[:, None, smpl.h36m_root_joint_idx, :]
-        pred, target = pred[:, smpl.h36m_eval_joints, :], target[:, smpl.h36m_eval_joints, :]
-        
+        if self.val_dataset.joint_set['name'] == 'MuPoTS':
+            for i in range(batch_size):
+                pred[i] = transform_joint_to_other_db(pred[i], self.val_dataset.joint_set['joints_name'], self.val_dataset.mpii3d_joints_name)
+            pred, target = pred - pred[:, None, self.val_dataset.root_joint_idx, :], target - target[:, None, self.val_dataset.root_joint_idx, :]
+        else:
+            pred, target = pred - pred[:, None, smpl.h36m_root_joint_idx, :], target - target[:, None, smpl.h36m_root_joint_idx, :]
+            pred, target = pred[:, smpl.h36m_eval_joints, :], target[:, smpl.h36m_eval_joints, :]
+
         mpjpe, pa_mpjpe = [], []
         for j in range(batch_size):
             mpjpe.append(eval_mpjpe(pred[j], target[j]))
