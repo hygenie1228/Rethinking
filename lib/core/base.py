@@ -18,11 +18,12 @@ from core.loss import get_loss
 from aug_utils import transform_joint_to_other_db
 from coord_utils import get_max_preds, flip_back
 from funcs_utils import get_optimizer, load_checkpoint, get_scheduler, count_parameters
-from eval_utils import eval_mpjpe, eval_pa_mpjpe, calc_dists, dist_acc
+from eval_utils import eval_mpjpe, eval_pa_mpjpe, rigid_align, calc_dists, dist_acc 
 from vis_utils import save_plot
 from human_models import smpl, coco
 
 from renderer import render_mesh
+import scipy.io as sio
 
 for dataset in cfg.DATASET.train_list+cfg.DATASET.test_list:
     exec(f'from {dataset}.dataset import {dataset}')
@@ -273,7 +274,7 @@ class Trainer:
                                                 f'joint: {loss1:.4f} smpl_joint: {loss2:.4f} proj: {loss3:.4f} pose: {loss4:.4f}, shape: {loss5:.4f}, prior: {loss6:.4f}')
             
             # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//2) == 0:
+            if False:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
@@ -290,7 +291,7 @@ class Trainer:
                 vis_3d_pose(pred_joint_cam*1000, smpl.skeleton, 'smpl', osp.join(cfg.vis_dir, f'train_{i}_joint_cam_pred.png'))
                 
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img,meta_joint_valid[:,None]],1), smpl.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), img)
                 
                 save_obj(pred_mesh_cam[0].detach().cpu().numpy(), smpl.face, osp.join(cfg.vis_dir, f'train_{i}_mesh_cam_pred.obj'))
 
@@ -342,9 +343,13 @@ class Tester:
                 self.eval_mpvpe = True
             else:
                 self.eval_mpvpe = False
+        else:
+            return
         
         if self.val_dataset.joint_set['name'] == 'MuPoTS':
             self.J_regressor = torch.from_numpy(self.val_dataset.mpii3d_smpl_regressor).float().cuda()
+            self.pred_2d_save = {}
+            self.pred_3d_save = {}
         else:
             self.J_regressor = torch.from_numpy(smpl.h36m_joint_regressor).float().cuda()
 
@@ -455,12 +460,39 @@ class Tester:
                 pred_mesh_cam = pred_mesh_cam.cpu().numpy()
                 tar_mesh_cam = batch['mesh_cam'].cpu().numpy()
                 
-                mpjpe_i, pa_mpjpe_i = self.eval_3d_joint(pred_joint_cam, tar_joint_cam)
+                if self.val_dataset.joint_set['name'] == 'MuPoTS':
+                    for i in range(batch_size):
+                        pred_joint_cam[i] = transform_joint_to_other_db(pred_joint_cam[i], self.val_dataset.joint_set['joints_name'], self.val_dataset.mpii3d_joints_name)
+                    pred_joint_cam = pred_joint_cam - pred_joint_cam[:, self.val_dataset.root_joint_idx, None]
+                    pred_joint_cam = pred_joint_cam + tar_joint_cam[:, self.val_dataset.root_joint_idx, None]
+                    
+                    from coord_utils import world2cam, cam2pixel, process_bbox
+                    from vis_utils import vis_keypoints_with_skeleton
+                    import cv2
 
-                error_list.append(mpjpe_i[0])
+                    for i in range(batch_size):
+                        imgname = batch['imgname'][i]
+                        aaa = pred_joint_cam[i]
+                        bbb = cam2pixel(aaa, batch['cam_param']['focal'][i].cpu().numpy(), batch['cam_param']['princpt'][i].cpu().numpy())
+                        bbb = bbb[:,:2]
+
+                        if imgname in self.pred_3d_save:
+                            self.pred_3d_save[imgname].append(aaa.tolist())
+                            self.pred_2d_save[imgname].append(bbb.tolist())
+                        else:
+                            self.pred_3d_save[imgname] = [aaa.tolist()]
+                            self.pred_2d_save[imgname] = [bbb.tolist()]
+                        # img = cv2.imread(batch['img_path'][0])
+                        #tmp_img = vis_keypoints_with_skeleton(img, bbb, self.val_dataset.joint_set['skeleton'])
+                        #cv2.imwrite('debug2.png', tmp_img)
+                    mpjpe_i = [np.zeros((17,)) for i in range(batch_size)]
+                    pa_mpjpe_i = [np.zeros((17,)) for i in range(batch_size)]
+                else:
+                    mpjpe_i, pa_mpjpe_i = self.eval_3d_joint(pred_joint_cam, tar_joint_cam)
+
                 mpjpe.extend(mpjpe_i); pa_mpjpe.extend(pa_mpjpe_i)
-                mpjpe_i, pa_mpjpe_i = sum(mpjpe_i)/batch_size, sum(pa_mpjpe_i)/batch_size
-    
+                mpjpe_i, pa_mpjpe_i = np.array(mpjpe_i).mean(), np.array(pa_mpjpe_i).mean()
+                
 
                 if self.eval_mpvpe:
                     mpvpe_i = self.eval_mesh(pred_mesh_cam, tar_mesh_cam, pred_joint_cam, tar_joint_cam)
@@ -472,26 +504,28 @@ class Tester:
                         loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => MPJPE: {mpjpe_i:.2f}, PA-MPJPE: {pa_mpjpe_i:.2f} MPVPE: {mpvpe_i:.2f}')
                     else:
                         loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => MPJPE: {mpjpe_i:.2f}, PA-MPJPE: {pa_mpjpe_i:.2f}')
-                    
-                if cfg.TEST.vis:
+                
+                #if cfg.TEST.vis:
+                if True:
                     import cv2
                     from vis_utils import vis_3d_pose, save_obj
                     
-                    if i % self.vis_freq == 0:
+                    #if i % self.vis_freq == 0:
+                    if False:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                         img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                         img = np.ascontiguousarray(img, dtype=np.uint8)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_img.png'), img)
                         
-                        pred_joint_cam = pred_joint_cam - pred_joint_cam[:, None, smpl.h36m_root_joint_idx, :]
-                        vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
-                        vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
+                        #pred_joint_cam = pred_joint_cam - pred_joint_cam[:, None, smpl.h36m_root_joint_idx, :]
+                        #vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
+                        #vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
 
-                        save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_pred.obj'))
-                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
+                        #save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_pred.obj'))
+                        #save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
 
                         # render 
-                        '''import copy
+                        import copy
                         gt_bbox = batch['bbox'][0].cpu().numpy()
                         focal = copy.copy(cfg.CAMERA['focal'])
                         princpt = copy.copy(cfg.CAMERA['princpt'])
@@ -499,16 +533,31 @@ class Tester:
                         cam_param = {'focal': focal, 'princpt': princpt}
                         
                         pred_rendered_img = render_mesh(img, pred_mesh_cam[0]/1000, smpl.face, cam_param)
-                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_render.png'), pred_rendered_img)'''
-                       
-            self.mpjpe = sum(mpjpe) / self.dataset_length
-            self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_render.png'), pred_rendered_img)
+                     
+
+            if self.val_dataset.joint_set['name'] == 'MuPoTS':
+                pck_curve_array, pck_array, auc_array = self.val_dataset.mpii_compute_3d_pck([mpjpe])
+                pck_mean = sum([i[-1] for i in pck_array]) / len(pck_array)
+                self.mpjpe = np.array(mpjpe).mean()
+            else:
+                self.mpjpe = sum(mpjpe) / self.dataset_length   
+
+            self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length         
             self.mpvpe = sum(mpvpe) / self.dataset_length
-            #self.mpjpe_x = sum(error_x) / self.dataset_length
-            #self.mpjpe_y = sum(error_y) / self.dataset_length
-            #self.mpjpe_z = sum(error_z) / self.dataset_length
             
-            if self.eval_mpvpe:
+
+            if self.val_dataset.joint_set['name'] == 'MuPoTS':
+                res_name = cfg.MODEL.weight_path.split('/')[-3]
+                output_path = f'debug/{res_name}_preds_2d_kpt_mupots.mat'.replace(':', '_')
+                sio.savemat(output_path, self.pred_2d_save)
+
+                output_path = f'debug/{res_name}_preds_3d_kpt_mupots.mat'.replace(':', '_')
+                sio.savemat(output_path, self.pred_3d_save)
+
+            if self.val_dataset.joint_set['name'] == 'MuPoTS':
+                logger.info(f'>> {eval_prefix} PA-MPJPE: {self.pa_mpjpe:.2f}, 3DPCK: {pck_mean:.3f}')
+            elif self.eval_mpvpe:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f} MPVPE: {self.mpvpe:.2f}')
             else:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f}')
@@ -606,8 +655,16 @@ class Tester:
 
         mpjpe, pa_mpjpe = [], []
         for j in range(batch_size):
-            mpjpe.append(eval_mpjpe(pred[j], target[j]))
+            
             pa_mpjpe.append(eval_pa_mpjpe(pred[j], target[j]))
+
+            if self.val_dataset.joint_set['name'] == 'MuPoTS':
+                '''from vis_utils import vis_keypoints_with_skeleton, vis_3d_pose, save_obj
+                vis_3d_pose(pred[j], self.val_dataset.joint_set['skeleton'], '', osp.join(cfg.vis_dir, f'debug_{j}_pred.png'))
+                vis_3d_pose(target[j], self.val_dataset.joint_set['skeleton'], '', osp.join(cfg.vis_dir, f'debug_{j}_target.png'))'''
+                mpjpe.append(np.sqrt(np.sum((pred[j] - target[j]) ** 2, 1)))
+            else:
+                mpjpe.append(eval_mpjpe(pred[j], target[j]))
         
         return mpjpe, pa_mpjpe
 

@@ -5,9 +5,9 @@ DATASET:
     # PW3D  
     test_list: ['PW3D']   
     make_same_len: True    
-    workers: 4
+    workers: 8
     do_subsampling: True
-    subsampling_ratio: 0.6
+    subsampling_ratio: 0.1
 
 
 MODEL:
@@ -16,8 +16,8 @@ MODEL:
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    normalize_imagenet: False
-    weight_path: 'experiment/pretrained_segmentation_mscoco/checkpoints/seg_coco_snapshot_139.pth.tar'
+    normalize_imagenet: True
+    weight_path: '/home/namhj/DataCollection/experiment/exp_09-24_23:54:22/checkpoints/epoch_95.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:

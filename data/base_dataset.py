@@ -201,7 +201,8 @@ class BaseDataset(Dataset):
                 # meter to milimeter
                 mesh_cam, joint_cam = mesh_cam * 1000, joint_cam * 1000
             elif self.joint_set['name'] == 'MuPoTS':
-                joint_cam = joint_cam - joint_cam[self.root_joint_idx]
+                #joint_cam = joint_cam - joint_cam[self.root_joint_idx]
+                joint_cam = data['joint_cam']
                 joint_cam = joint_cam * 1000
                 mesh_cam = np.zeros((smpl.vertex_num, 3))
 
@@ -217,14 +218,19 @@ class BaseDataset(Dataset):
             else:
                 mesh_cam = np.zeros((smpl.vertex_num, 3))
                 joint_cam = np.zeros((smpl.joint_num, 3))               
-               
+            
             batch = {
                 'img': img,
                 'bbox': bbox,
                 'joint_cam': joint_cam,
                 'mesh_cam': mesh_cam
             }
-        
+
+            if self.joint_set['name'] == 'MuPoTS':
+                batch['cam_param'] = data['cam_param']
+                batch['imgname'] = data['img_path'].split('/')[-2] + '_' + data['img_path'].split('/')[-1].split('.')[0]
+                batch['img_path'] = data['img_path']
+
         return batch
 
     def get_item_hand(self, index):

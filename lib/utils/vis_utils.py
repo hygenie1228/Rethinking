@@ -9,6 +9,26 @@ from core.config import cfg
 
 from coord_utils import get_max_preds
 
+def vis_bboxes(img, boxes):
+    img = img.copy()
+    color, thickness = (0, 255, 0), 2
+
+    for i, box in enumerate(boxes):
+        x_min, y_min, x_max, y_max = int(box[0]), int(box[1]), int(box[0])+int(box[2]), int(box[1])+int(box[3])
+    
+        pos1 = (x_min, y_min)
+        pos2 = (x_min, y_max)
+        pos3 = (x_max, y_min)
+        pos4 = (x_max, y_max)
+        
+        img = cv2.line(img, pos1, pos2, color, thickness) 
+        img = cv2.line(img, pos1, pos3, color, thickness) 
+        img = cv2.line(img, pos2, pos4, color, thickness) 
+        img = cv2.line(img, pos3, pos4, color, thickness) 
+
+    return img
+
+
 def vis_keypoints(img, kps, alpha=1):
     # Convert from plt 0-1 RGBA colors to 0-255 BGR colors for opencv.
     cmap = plt.get_cmap('rainbow')

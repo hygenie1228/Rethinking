@@ -1,20 +1,20 @@
 DATASET:
     train_list: []    
     # PW3D  
-    test_list: ['MuPoTS']               
-    workers: 4
+    test_list: ['PW3D']               
+    workers: 2
 
 MODEL:
     type: 'body'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
     use_upsampling_layer: False
-    normalize_imagenet: True
-    weight_path: 'experiment/final/exp_02-27_02_26/checkpoints/best.pth.tar'
+    normalize_imagenet: False
+    weight_path: '/home/namhj/DataCollection/experiment/exp_07-21_15:50:46/checkpoints/epoch_60.pth.tar'
     input_img_shape: [256, 192]
 
 TEST:
-    batch_size: 32
+    batch_size: 64
     shuffle: False
     vis: True
     vis_freq: 100

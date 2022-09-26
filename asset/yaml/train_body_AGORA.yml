@@ -18,7 +18,7 @@ MODEL:
 TRAIN:
     transfer_backbone: False
     freeze_backbone: False
-    batch_size: 128
+    batch_size: 16
     shuffle: True 
     begin_epoch: 1
     end_epoch: 140

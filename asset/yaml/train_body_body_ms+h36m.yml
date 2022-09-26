@@ -14,7 +14,7 @@ MODEL:
     backbone: 'resnet50'
     use_upsampling_layer: False
     normalize_imagenet: True
-    weight_path: 'experiment/pretrained_agora_from_scratch/checkpoints/final.pth.tar'
+    weight_path: '/home/namhj/DataCollection/experiment/exp_09-25_00:44:28/checkpoints/epoch_10.pth.tar'
     input_img_shape: [256, 192]
 
 TRAIN:
