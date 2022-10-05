@@ -57,14 +57,14 @@ class BaseDataset(Dataset):
         if do_flip: joint_valid_1 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         else: joint_valid_1 = joint_valid
         
-        hm_1, joint_valid_1 = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape, sigma=cfg.TRAIN.heatmap_sigma)
+        hm_1, joint_valid_1 = generate_joint_heatmap(joint_img_1, joint_valid_1, cfg.MODEL.input_img_shape, (64, 48), sigma=cfg.TRAIN.heatmap_sigma)
 
         img_2, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
         joint_img_2 = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
         if do_flip: joint_valid_2 = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
         else: joint_valid_2 = joint_valid
             
-        hm_2, joint_valid_2 = generate_joint_heatmap(joint_img_2, joint_valid_2, cfg.MODEL.input_img_shape, cfg.MODEL.img_feat_shape, sigma=cfg.TRAIN.heatmap_sigma)
+        hm_2, joint_valid_2 = generate_joint_heatmap(joint_img_2, joint_valid_2, cfg.MODEL.input_img_shape, (64, 48), sigma=cfg.TRAIN.heatmap_sigma)
 
         # debug
         '''
@@ -93,6 +93,10 @@ class BaseDataset(Dataset):
         # convert joint set
         hm_1 = transform_joint_to_other_db(hm_1, self.joint_set['joints_name'], coco.joints_name)
         hm_2 = transform_joint_to_other_db(hm_2, self.joint_set['joints_name'], coco.joints_name)
+        
+        joint_img_1 = transform_joint_to_other_db(joint_img_1, self.joint_set['joints_name'], coco.joints_name)
+        joint_img_1 = transform_joint_to_other_db(joint_img_2, self.joint_set['joints_name'], coco.joints_name)
+        
         joint_valid_1 = transform_joint_to_other_db(joint_valid_1, self.joint_set['joints_name'], coco.joints_name)
         joint_valid_2 = transform_joint_to_other_db(joint_valid_2, self.joint_set['joints_name'], coco.joints_name)
         

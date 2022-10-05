@@ -190,20 +190,28 @@ class PoseResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, out_feat=False):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
 
+        feats = []
         x = self.layer1(x)
+        feats.append(x)
         x = self.layer2(x)
+        feats.append(x)
         x = self.layer3(x)
+        feats.append(x)
         x = self.layer4(x)
+        feats.append(x)
 
         if self.do_upsampling:
             x = self.deconv_layers(x)
 
+        if out_feat:
+            return feats
+        
         return x
 
     def init_weights(self, pretrained):

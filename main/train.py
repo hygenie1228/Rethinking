@@ -36,7 +36,7 @@ for epoch in range(cfg.TRAIN.begin_epoch, cfg.TRAIN.end_epoch + 1):
     trainer.train(epoch)
     trainer.lr_scheduler.step()
     
-    if len(cfg.DATASET.test_list) > 0:
+    if len(cfg.DATASET.test_list) > 0 and epoch % 5 == 0:
         tester.test(epoch, current_model=trainer.model)    
     
     is_best = None

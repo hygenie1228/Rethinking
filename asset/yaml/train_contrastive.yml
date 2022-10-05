@@ -1,6 +1,6 @@
 DATASET:
     # 'MSCOCO'
-    train_list: ['InstaVariety']    
+    train_list: ['MSCOCO']    
     # PW3D  
     test_list: []
     train_partition: [1.0]
@@ -18,7 +18,7 @@ MODEL:
 
 TRAIN:      
     transfer_backbone: False
-    batch_size: 128
+    batch_size: 64
     shuffle: True
     begin_epoch: 1
     end_epoch: 140
@@ -28,7 +28,7 @@ TRAIN:
     lr_step: [90, 120]
     lr_factor: 0.1
     print_freq: 10
-    heatmap_sigma: 1.0
+    heatmap_sigma: 2.0
     vis: True
 
     contrast_loss_weight: 1.0

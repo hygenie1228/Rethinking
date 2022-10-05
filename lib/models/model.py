@@ -39,25 +39,54 @@ class Model(nn.Module):
             logger.info('Invalid Model Type!')
             assert 0
 
+    def scale_hm(self, hm):
+        batch_size, joint_num, height, width = hm.shape
+        
+        heatmaps = []
+        heatmaps.append(hm)
+        
+        hm = F.interpolate(hm, size=[height//2, width//2], mode='bilinear')
+        heatmaps.append(hm)
+        
+        hm = F.interpolate(hm, size=[height//4, width//4], mode='bilinear')
+        heatmaps.append(hm)
+        
+        hm = F.interpolate(hm, size=[height//8, width//8], mode='bilinear')
+        heatmaps.append(hm)
+        return heatmaps
+
+
     def forward_contrastive(self, inp_img, meta_hm):
-        img_feat = self.backbone(inp_img)
+        batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
+        
+        img_feats = self.backbone(inp_img, True)
+        heatmaps = self.scale_hm(meta_hm)
 
-        # hm normalization
-        meta_hm = meta_hm.clone()
-        hm_valid = (meta_hm.sum((2,3)) > 0)
-        meta_hm[hm_valid] /= meta_hm.sum((2,3))[hm_valid][:,None,None]
 
-        joint_feat = img_feat[:,None,:,:,:] * meta_hm[:,:,None,:,:]
+        joint_feats = []
+        joint_feat = img_feats[0][:,None,:,:,:] * heatmaps[0][:,:,None,:,:]
         joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
+        
+        joint_feat = img_feats[1][:,None,:,:,:] * heatmaps[1][:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
+        
+        joint_feat = img_feats[2][:,None,:,:,:] * heatmaps[2][:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
+        
+        joint_feat = img_feats[3][:,None,:,:,:] * heatmaps[3][:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
 
-        batch_size, joint_num, _ = joint_feat.shape
-        joint_feat = joint_feat.view(batch_size*joint_num, -1)
-
-        joint_feat = self.head(joint_feat)
-
-        joint_feat = F.normalize(joint_feat, dim=1)
-        joint_feat = joint_feat.view(batch_size, joint_num, -1)
-        return joint_feat
+        joint_feats = torch.cat(joint_feats, dim=-1)
+        joint_feats = joint_feats.reshape(batch_size*joint_num, -1)
+        joint_feats = self.head(joint_feats)
+        joint_feats = F.normalize(joint_feats, dim=1)
+        
+        joint_feats = joint_feats.reshape(batch_size, joint_num, -1)
+        return joint_feats
 
 
     def forward_2d_joint(self, inp_img):
@@ -170,7 +199,7 @@ def get_model(is_train):
         
 
     if cfg.MODEL.type == 'contrastive':
-        head = Projector(backbone_out_dim,cfg.MODEL.projector_hidden_dim,cfg.MODEL.projector_out_dim)
+        head = Projector(3840, 256, 128)
     elif cfg.MODEL.type == '2d_joint':
         head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == 'body':
@@ -192,7 +221,7 @@ def get_model(is_train):
             logger.info(f"==> Transfer from checkpoint: {cfg.MODEL.weight_path}")
             transfer_backbone(backbone, cfg.MODEL.weight_path)
         else:
-            #pretrained = ''
+            pretrained = ''
             logger.info("trained from" + pretrained)
             backbone.init_weights(pretrained)
             

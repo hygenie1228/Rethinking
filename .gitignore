@@ -18,10 +18,10 @@ log/
 data/*/*.json
 data/*/*/*.json
 data/*/images
-data*/data
+data/*/data
 data/*/annotation
 data/*/annotations
-
+debug
 
 # Distribution / packaging
 .Python
