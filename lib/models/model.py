@@ -51,8 +51,6 @@ class Model(nn.Module):
         hm = F.interpolate(hm, size=[height//4, width//4], mode='bilinear')
         heatmaps.append(hm)
         
-        hm = F.interpolate(hm, size=[height//8, width//8], mode='bilinear')
-        heatmaps.append(hm)
         return heatmaps
 
 
@@ -76,12 +74,13 @@ class Model(nn.Module):
         joint_feat = joint_feat.sum((3,4))
         joint_feats.append(joint_feat)
         
-        joint_feat = img_feats[3][:,None,:,:,:] * heatmaps[3][:,:,None,:,:]
-        joint_feat = joint_feat.sum((3,4))
+        joint_feat = img_feats[3].mean((2,3))
+        joint_feat = joint_feat[:,None,:].repeat(1,joint_num,1)
         joint_feats.append(joint_feat)
 
         joint_feats = torch.cat(joint_feats, dim=-1)
         joint_feats = joint_feats.reshape(batch_size*joint_num, -1)
+        
         joint_feats = self.head(joint_feats)
         joint_feats = F.normalize(joint_feats, dim=1)
         
