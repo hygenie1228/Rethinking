@@ -61,9 +61,8 @@ class Model(nn.Module):
     def forward_contrastive(self, inp_img, meta_hm):
         batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
         
-        img_feats, _ = self.backbone(inp_img, True)
+        img_feats, x = self.backbone(inp_img, True)
         heatmaps = self.scale_hm(meta_hm)
-
 
         joint_feats = []
         joint_feat = img_feats[0][:,None,:,:,:] * heatmaps[0][:,:,None,:,:]
@@ -78,18 +77,16 @@ class Model(nn.Module):
         joint_feat = joint_feat.sum((3,4))
         joint_feats.append(joint_feat)
         
-        joint_feat = img_feats[3][:,None,:,:,:] * heatmaps[3][:,:,None,:,:]
-        joint_feat = joint_feat.sum((3,4))
-        joint_feats.append(joint_feat)
 
         joint_feats = torch.cat(joint_feats, dim=-1)
         joint_feats = joint_feats.reshape(batch_size*joint_num, -1)
-        joint_feats = self.head(joint_feats)
+                
+        joint_feats = self.projector(joint_feats)
         joint_feats = F.normalize(joint_feats, dim=1)
-        
         joint_feats = joint_feats.reshape(batch_size, joint_num, -1)
-        return joint_feats
-
+        
+        joint_heatmap = self.head(x)
+        return joint_heatmap, joint_feats
 
     def forward_2d_joint(self, inp_img, meta_hm):
         batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
@@ -222,7 +219,7 @@ def get_model(is_train):
         
 
     if cfg.MODEL.type == 'contrastive':
-        head = Projector(3840, 256, 128)
+        head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == '2d_joint':
         head = nn.Conv2d(in_channels=backbone_out_dim, out_channels=coco.joint_num, kernel_size=1, stride=1,padding=0)
     elif cfg.MODEL.type == 'body':

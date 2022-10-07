@@ -82,7 +82,7 @@ def prepare_network(args, load_dir='', is_train=True):
 def train_setup(model, checkpoint):    
     criterion, optimizer, lr_scheduler = None, None, None
     if cfg.MODEL.type == 'contrastive':
-        loss_history = {'total_loss': [], 'contrast_loss': []}
+        loss_history = {'total_loss': [], 'contrast_loss': [], 'hm_loss': []}
         error_history = {}
     elif cfg.MODEL.type == '2d_joint':
         loss_history = {'total_loss': [], 'hm_loss': [], 'contrast_loss': []}
@@ -131,6 +131,7 @@ class Trainer:
         
         if cfg.MODEL.type == 'contrastive':
             self.train = self.train_contrastive
+            self.hm_loss_weight = cfg.TRAIN.hm_loss_weight
             self.contrast_loss_weight = cfg.TRAIN.contrast_loss_weight
         elif cfg.MODEL.type == '2d_joint':
             self.train = self.train_2d_joint
@@ -152,6 +153,7 @@ class Trainer:
 
         running_loss = 0.0
         running_contrast_loss = 0.0
+        running_hm_loss = 0.0
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
@@ -163,7 +165,7 @@ class Trainer:
             meta_hm = torch.cat([meta_hm_1, meta_hm_2])
             meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
             
-            joint_feat = self.model(inp_img, meta_hm, meta_joint_valid)
+            pred_heatmap, joint_feat = self.model(inp_img, meta_hm, meta_joint_valid)
 
             batch_size = inp_img_1.shape[0]
             joint_feat = torch.stack([joint_feat[:batch_size],joint_feat[batch_size:]])
@@ -173,7 +175,10 @@ class Trainer:
             # joint_feat: [bs, joint_num, n_views, feat_dim]
             # joint_valid: [bs, joint_num]
             loss1 = self.contrast_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
-            loss = loss1
+            meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
+            loss2 = self.hm_loss_weight * self.loss['hm'](pred_heatmap, meta_hm, meta_joint_valid)
+            
+            loss = loss1 + loss2
             
             # update weights
             self.optimizer.zero_grad()
@@ -181,48 +186,66 @@ class Trainer:
             self.optimizer.step()
 
             # log
-            loss, loss1 = loss.detach(), loss1.detach()
+            loss, loss1, loss2 = loss.detach(), loss1.detach(), loss2.detach()
             running_loss += float(loss.item())
             running_contrast_loss += float(loss1.item())
+            running_hm_loss += float(loss2.item())
 
             if i % self.print_freq == 0:
                 batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr:.1E} => '
-                                                f'joint_cont loss: {loss1:.4f}')
+                                                f'joint_cont loss: {loss1:.4f} hm loss: {loss2:.4f}')
             
             # visualize
-            if cfg.TRAIN.vis and i == 0:
+            if cfg.TRAIN.vis and i == 1:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
+                
                 inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                 img = np.ascontiguousarray(img, dtype=np.uint8)
                 
-                joint_img, _ = get_max_preds(meta_hm.cpu().detach().numpy())
-                joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-                joint_valid = meta_joint_valid.cpu().detach().numpy()
+                pred_heatmap = pred_heatmap.cpu().detach().numpy()
+                tar_heatmap = meta_hm.cpu().detach().numpy()
+                meta_hm_valid = meta_joint_valid.cpu().numpy()
 
-                img = inv_normalize(inp_img_1[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
-                tmp_hm = meta_hm_1[0].cpu().numpy()
-                tmp_img = vis_heatmaps(img[None,...], tmp_hm[None,...])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_1.png'), tmp_img)
+                pred_joint_img, pred_joint_valid = get_max_preds(pred_heatmap)
+                pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
 
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[0],joint_valid[0,:, None]],1), coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_1.png'), tmp_img)
-
-                img = inv_normalize(inp_img_2[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                img = np.ascontiguousarray(img, dtype=np.uint8)
-                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([joint_img[batch_size],joint_valid[0,:, None]],1), coco.skeleton)
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_2.png'), tmp_img)
+                tar_joint_img, _ = get_max_preds(tar_heatmap)
+                tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
+                tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
                 
-                tmp_hm = meta_hm_2[0].cpu().numpy()
-                tmp_img = vis_heatmaps(img[None,...], tmp_hm[None,...])
-                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_2.png'), tmp_img)
+                tmp_img = vis_heatmaps(img[None,...], pred_heatmap[0, None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_pred_1.png'), tmp_img)
 
-            
+                tmp_img = vis_heatmaps(img[None,...], tar_heatmap[0, None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_gt_1.png'), tmp_img)
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred_1.png'), tmp_img)
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt_1.png'), tmp_img)
+                
+                img = inv_normalize(inp_img[batch_size]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                img = np.ascontiguousarray(img, dtype=np.uint8)
+                
+                tmp_img = vis_heatmaps(img[None,...], pred_heatmap[batch_size, None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_pred_2.png'), tmp_img)
+
+                tmp_img = vis_heatmaps(img[None,...], tar_heatmap[batch_size, None,...])
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_hm_gt_2.png'), tmp_img)
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[batch_size],pred_joint_valid[batch_size,:]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_pred_2.png'), tmp_img)
+
+                tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[batch_size],meta_hm_valid[batch_size,:, None]],1), coco.skeleton)
+                cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt_2.png'), tmp_img)
+
         self.loss_history['total_loss'].append(running_loss / len(batch_generator))
         self.loss_history['contrast_loss'].append(running_contrast_loss / len(batch_generator))  
+        self.loss_history['hm_loss'].append(running_hm_loss / len(batch_generator))  
             
         logger.info(f'Epoch{epoch} Loss: {self.loss_history["total_loss"][-1]:.4f}')
         

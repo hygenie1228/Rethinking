@@ -11,11 +11,11 @@ MODEL:
     type: 'contrastive'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
-    use_upsampling_layer: False
+    use_upsampling_layer: True
     input_img_shape: [256, 192]
     projector_hidden_dim: 2048
     projector_out_dim: 128
-    weight_path: '/home/namhj/DataCollection/experiment/exp_10-05_23_28_20/checkpoints/epoch_90.pth.tar'
+    #weight_path: '/home/namhj/DataCollection/experiment/exp_10-05_23_28_20/checkpoints/epoch_90.pth.tar'
 
 TRAIN:      
     transfer_backbone: False
@@ -32,7 +32,8 @@ TRAIN:
     heatmap_sigma: 2.0
     vis: True
 
-    contrast_loss_weight: 1.0
+    hm_loss_weight: 1.0
+    contrast_loss_weight: 0.1
     temperature: 0.07
 
 AUG:
