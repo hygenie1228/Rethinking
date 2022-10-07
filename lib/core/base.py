@@ -85,7 +85,7 @@ def train_setup(model, checkpoint):
         loss_history = {'total_loss': [], 'contrast_loss': []}
         error_history = {}
     elif cfg.MODEL.type == '2d_joint':
-        loss_history = {'total_loss': [], 'hm_loss': []}
+        loss_history = {'total_loss': [], 'hm_loss': [], 'contrast_loss': []}
         error_history = {'pck': []}
     elif cfg.MODEL.type == 'body':
         loss_history = {'total_loss': [], 'joint_loss': [], 'smpl_joint_loss': [], 'proj_loss': [], 'pose_param_loss': [], 'shape_param_loss': [], 'prior_loss': []}
@@ -135,6 +135,7 @@ class Trainer:
         elif cfg.MODEL.type == '2d_joint':
             self.train = self.train_2d_joint
             self.hm_loss_weight = cfg.TRAIN.hm_loss_weight
+            self.contrast_loss_weight = cfg.TRAIN.contrast_loss_weight
         elif cfg.MODEL.type == 'body':
             self.train = self.train_body
             self.joint_loss_weight = cfg.TRAIN.joint_loss_weight
@@ -231,6 +232,7 @@ class Trainer:
 
         running_loss = 0.0
         running_hm_loss = 0.0
+        running_cont_loss = 0.0
         
         batch_generator = tqdm(self.batch_generator)
         for i, batch in enumerate(batch_generator):
@@ -238,10 +240,11 @@ class Trainer:
             tar_heatmap = batch['hm'].cuda()
             meta_hm_valid = batch['hm_valid'].cuda()
             
-            pred_heatmap = self.model(inp_img)
+            pred_heatmap, joint_feat = self.model(inp_img, tar_heatmap)
 
             loss1 = self.hm_loss_weight * self.loss['hm'](pred_heatmap, tar_heatmap, meta_hm_valid)
-            loss = loss1
+            loss2 = self.contrast_loss_weight*self.loss['joint_cont'](joint_feat[:,:,None,:], meta_hm_valid)
+            loss = loss1 + loss2
             
             # update weights
             self.optimizer.zero_grad()
@@ -249,13 +252,14 @@ class Trainer:
             self.optimizer.step()
 
             # log
-            loss, loss1 = loss.detach(), loss1.detach()
+            loss, loss1, loss2 = loss.detach(), loss1.detach(), loss2.detach()
             running_loss += float(loss.item())
             running_hm_loss += float(loss1.item())
+            running_cont_loss += float(loss2.item())
             
             if i % self.print_freq == 0:
                 batch_generator.set_description(f'Epoch{epoch} ({i}/{len(batch_generator)}), lr {lr} => '
-                                                f'hm loss: {loss1:.4f}')
+                                                f'hm loss: {loss1:.4f} cont loss: {loss2:.4f}')
             
             # visualize 
             if cfg.TRAIN.vis and i % (len(batch_generator)//4) == 0:
@@ -292,7 +296,8 @@ class Trainer:
     
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator)) 
-        self.loss_history['hm_loss'].append(running_hm_loss / len(batch_generator))     
+        self.loss_history['hm_loss'].append(running_hm_loss / len(batch_generator))   
+        self.loss_history['contrast_loss'].append(running_cont_loss / len(batch_generator))     
         logger.info(f'Epoch{epoch} Loss: {self.loss_history["total_loss"][-1]:.4f}')
 
         

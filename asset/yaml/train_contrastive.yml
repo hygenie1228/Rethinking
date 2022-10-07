@@ -15,6 +15,7 @@ MODEL:
     input_img_shape: [256, 192]
     projector_hidden_dim: 2048
     projector_out_dim: 128
+    weight_path: '/home/namhj/DataCollection/experiment/exp_10-05_23_28_20/checkpoints/epoch_90.pth.tar'
 
 TRAIN:      
     transfer_backbone: False

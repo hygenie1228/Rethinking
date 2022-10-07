@@ -210,7 +210,7 @@ class PoseResNet(nn.Module):
             x = self.deconv_layers(x)
 
         if out_feat:
-            return feats
+            return feats, x
         
         return x
 

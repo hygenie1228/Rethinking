@@ -21,16 +21,18 @@ class Model(nn.Module):
         self.head = head
         self.smpl_layer = copy.deepcopy(smpl.layer['neutral']).cuda()
         
+        self.projector = Projector(1792, 256, 128)
+
         if cfg.TRAIN.freeze_backbone:
             self.trainable_modules = [self.head]
         else:
-            self.trainable_modules = [self.backbone, self.head]
+            self.trainable_modules = [self.backbone, self.head, self.projector]
         
     def forward(self, inp_img, meta_hm=None, meta_valid=None):
         if cfg.MODEL.type == 'contrastive':
             return self.forward_contrastive(inp_img, meta_hm)
         elif cfg.MODEL.type == '2d_joint':
-            return self.forward_2d_joint(inp_img)
+            return self.forward_2d_joint(inp_img, meta_hm)
         elif cfg.MODEL.type == 'body':
             return self.forward_body(inp_img)
         elif cfg.MODEL.type == 'hand':
@@ -59,7 +61,7 @@ class Model(nn.Module):
     def forward_contrastive(self, inp_img, meta_hm):
         batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
         
-        img_feats = self.backbone(inp_img, True)
+        img_feats, _ = self.backbone(inp_img, True)
         heatmaps = self.scale_hm(meta_hm)
 
 
@@ -89,12 +91,33 @@ class Model(nn.Module):
         return joint_feats
 
 
-    def forward_2d_joint(self, inp_img):
-        batch_size = inp_img.shape[0]
-        img_feat = self.backbone(inp_img)
+    def forward_2d_joint(self, inp_img, meta_hm):
+        batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
+
+        img_feats, x = self.backbone(inp_img, True)
+        heatmaps = self.scale_hm(meta_hm)
+
+        joint_feats = []
+        joint_feat = img_feats[0][:,None,:,:,:] * heatmaps[0][:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
         
-        joint_heatmap = self.head(img_feat)
-        return joint_heatmap
+        joint_feat = img_feats[1][:,None,:,:,:] * heatmaps[1][:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
+        
+        joint_feat = img_feats[2][:,None,:,:,:] * heatmaps[2][:,:,None,:,:]
+        joint_feat = joint_feat.sum((3,4))
+        joint_feats.append(joint_feat)
+
+        joint_feats = torch.cat(joint_feats, dim=-1)
+        joint_feats = joint_feats.reshape(batch_size*joint_num, -1)
+        joint_feats = self.projector(joint_feats)
+        joint_feats = F.normalize(joint_feats, dim=1)
+        joint_feats = joint_feats.reshape(batch_size, joint_num, -1)
+
+        joint_heatmap = self.head(x)
+        return joint_heatmap, joint_feats
 
 
     def forward_body(self, inp_img):

@@ -390,6 +390,7 @@ def get_loss():
         loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = JointsMSELoss(use_target_weight=True)
+        loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == 'body':
         loss['joint_cam'] = CoordLoss(has_valid=True)
         loss['smpl_joint_cam'] = CoordLoss(has_valid=True)
