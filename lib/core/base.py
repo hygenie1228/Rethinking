@@ -289,7 +289,6 @@ class Trainer:
 
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
-    
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator)) 
         self.loss_history['hm_loss'].append(running_hm_loss / len(batch_generator))     

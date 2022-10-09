@@ -1,6 +1,6 @@
 DATASET:
     train_list: ['MSCOCO']    
-    test_list: ['MSCOCO']               
+    test_list: []               
     workers: 16
 
 MODEL:
@@ -13,19 +13,19 @@ MODEL:
 TRAIN:  
     transfer_backbone: False
     freeze_backbone: False
-    batch_size: 128
+    batch_size: 64
     shuffle: True 
     begin_epoch: 1
-    end_epoch: 80
+    end_epoch: 200
     optimizer: 'adam'
     scheduler: 'step'
     lr: 0.001
     min_lr: 1.0e-6
-    lr_step: [50, 70]
+    lr_step: [120, 160]
     lr_factor: 0.1
     print_freq: 10
     heatmap_sigma: 2.0
-    vis: False
+    vis: True
 
     hm_loss_weight: 1.0
 
