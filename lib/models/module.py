@@ -179,10 +179,20 @@ class RotationNet(nn.Module):
 class Projector(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        self.projection_head = make_linear_layers([in_dim,hidden_dim,out_dim], relu_final=False, use_bn=False)
+        self.head1 = make_linear_layers([256,64], relu_final=False, use_bn=False)
+        self.head2 = make_linear_layers([512,64], relu_final=False, use_bn=False)
+        self.head3 = make_linear_layers([1024,64], relu_final=False, use_bn=False)
 
     def forward(self, joint_feat):
-        joint_feat = self.projection_head(joint_feat)
+        batch_size, joint_num, _ = joint_feat[0].shape
+        x1 = joint_feat[0].reshape(batch_size*joint_num, -1)
+        x2 = joint_feat[1].reshape(batch_size*joint_num, -1)
+        x3 = joint_feat[2].reshape(batch_size*joint_num, -1)
+
+        x1 = self.head1(x1)
+        x2 = self.head2(x2)
+        x3 = self.head3(x3)
+        joint_feat = torch.cat((x1,x2,x3), dim=-1)
         return joint_feat
 
     

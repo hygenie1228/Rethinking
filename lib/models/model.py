@@ -76,10 +76,6 @@ class Model(nn.Module):
         joint_feat = img_feats[2][:,None,:,:,:] * heatmaps[2][:,:,None,:,:]
         joint_feat = joint_feat.sum((3,4))
         joint_feats.append(joint_feat)
-        
-
-        joint_feats = torch.cat(joint_feats, dim=-1)
-        joint_feats = joint_feats.reshape(batch_size*joint_num, -1)
                 
         joint_feats = self.projector(joint_feats)
         joint_feats = F.normalize(joint_feats, dim=1)
