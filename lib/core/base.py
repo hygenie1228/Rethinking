@@ -571,6 +571,7 @@ class Tester:
                     else:
                         loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => MPJPE: {mpjpe_i:.2f}, PA-MPJPE: {pa_mpjpe_i:.2f}')
                 
+                '''
                 import cv2
                 from vis_utils import vis_3d_pose, save_obj
                 
@@ -583,6 +584,7 @@ class Tester:
                         
                         save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_pred.obj'))
                         save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_gt.obj'))
+                        '''
                 
                 #if cfg.TEST.vis:
                 if False:
