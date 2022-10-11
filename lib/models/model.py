@@ -21,12 +21,18 @@ class Model(nn.Module):
         self.head = head
         self.smpl_layer = copy.deepcopy(smpl.layer['neutral']).cuda()
         
-        self.projector = Projector(1792, 256, 128)
+        if cfg.MODEL.type == 'contrastive':
+            self.projector = Projector(1792, 256, 128)
+        else:
+            self.projector = None
 
         if cfg.TRAIN.freeze_backbone:
             self.trainable_modules = [self.head]
         else:
-            self.trainable_modules = [self.backbone, self.head, self.projector]
+            if self.projector is not None:
+                self.trainable_modules = [self.backbone, self.head, self.projector]
+            else:
+                self.trainable_modules = [self.backbone, self.head]
         
     def forward(self, inp_img, meta_hm=None, meta_valid=None):
         if cfg.MODEL.type == 'contrastive':

@@ -89,7 +89,7 @@ def train_setup(model, checkpoint):
         error_history = {'pck': []}
     elif cfg.MODEL.type == 'body':
         loss_history = {'total_loss': [], 'joint_loss': [], 'smpl_joint_loss': [], 'proj_loss': [], 'pose_param_loss': [], 'shape_param_loss': [], 'prior_loss': []}
-        error_history = {'mpjpe': [], 'pa_mpjpe': [], 'mpvpe': []}
+        error_history = {'mpjpe': [], 'pa_mpjpe': [], 'mpvpe': [], 'mpjpe_x': [], 'mpjpe_y': [], 'mpjpe_z': []}
     
     criterion = get_loss()
     optimizer = get_optimizer(model=model)
@@ -555,8 +555,8 @@ class Tester:
                 tar_mesh_cam = batch['mesh_cam'].cpu().numpy()
                 
                 mpjpe_i, pa_mpjpe_i = self.eval_3d_joint(pred_joint_cam, tar_joint_cam)
-                #error_x_i, error_y_i, error_z_i = self.eval_xyz_joint(pred_joint_cam, tar_joint_cam)
-                #error_x.extend(error_x_i); error_y.extend(error_y_i); error_z.extend(error_z_i)
+                error_x_i, error_y_i, error_z_i = self.eval_xyz_joint(pred_joint_cam, tar_joint_cam)
+                error_x.extend(error_x_i); error_y.extend(error_y_i); error_z.extend(error_z_i)
                 mpjpe.extend(mpjpe_i); pa_mpjpe.extend(pa_mpjpe_i)
                 mpjpe_i, pa_mpjpe_i = sum(mpjpe_i)/batch_size, sum(pa_mpjpe_i)/batch_size
                 
@@ -590,20 +590,16 @@ class Tester:
             self.mpjpe = sum(mpjpe) / self.dataset_length
             self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length
             self.mpvpe = sum(mpvpe) / self.dataset_length
-            #self.mpjpe_x = sum(error_x) / self.dataset_length
-            #self.mpjpe_y = sum(error_y) / self.dataset_length
-            #self.mpjpe_z = sum(error_z) / self.dataset_length
+            self.mpjpe_x = sum(error_x) / self.dataset_length
+            self.mpjpe_y = sum(error_y) / self.dataset_length
+            self.mpjpe_z = sum(error_z) / self.dataset_length
             
             if self.eval_mpvpe:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f} MPVPE: {self.mpvpe:.2f}')
             else:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f}')
             
-            #logger.info(f'>> {eval_prefix} MPJPE_X: {self.mpjpe_x:.2f}, MPJPE_Y: {self.mpjpe_y:.2f}, MPJPE_Z: {self.mpjpe_z:.2f}')
-
-
-    def test_hand(self, epoch, current_model=None):
-        pass
+            logger.info(f'>> {eval_prefix} MPJPE_X: {self.mpjpe_x:.2f}, MPJPE_Y: {self.mpjpe_y:.2f}, MPJPE_Z: {self.mpjpe_z:.2f}')
 
 
     def save_history(self, loss_history, error_history, epoch):
@@ -614,6 +610,9 @@ class Tester:
             error_history['mpjpe'].append(self.mpjpe)
             error_history['pa_mpjpe'].append(self.pa_mpjpe)
             error_history['mpvpe'].append(self.mpvpe)
+            error_history['mpjpe_x'].append(self.mpjpe_x)
+            error_history['mpjpe_y'].append(self.mpjpe_y)
+            error_history['mpjpe_z'].append(self.mpjpe_z)
 
             save_plot(error_history['mpjpe'], epoch, title='MPJPE', show_min=True)
             save_plot(error_history['pa_mpjpe'], epoch, title='PA-MPJPE', show_min=True)
@@ -627,19 +626,7 @@ class Tester:
             save_plot(loss_history['prior_loss'], epoch, title='Prior Loss')
         
         save_plot(loss_history['total_loss'], epoch, title='Total Loss')
-        
     
-    '''def eval_2d_joint(self, pred, target, target_valid):
-        pred, target = pred.copy(), target.copy()
-        batch_size = pred.shape[0]
-        
-        pck = []
-        for j in range(batch_size):
-            pred_i, target_i, target_val_i = pred[j], target[j], target_valid[j]
-            pred_i, target_i = pred_i[target_val_i>0], target_i[target_val_i>0]
-            pck.append(eval_2d_joint_accuracy(pred_i[None,...], target_i[None,...], cfg.MODEL.input_img_shape)[1])
-            
-        return pck'''
 
     def eval_2d_accuracy(self, pred, target):
         '''
