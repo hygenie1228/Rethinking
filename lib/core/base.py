@@ -460,6 +460,9 @@ class Tester:
             self.mpjpe = 9999
             self.pa_mpjpe = 9999
             self.mpvpe = 9999
+            self.mpjpe_x = 9999
+            self.mpjpe_y = 9999 
+            self.mpjpe_z = 9999
         elif cfg.MODEL.type == 'hand':
             self.test = self.test_hand
             
