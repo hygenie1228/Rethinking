@@ -74,7 +74,7 @@ def prepare_network(args, load_dir='', is_train=True):
     if load_dir and (not is_train or args.resume_training):
         logger.info(f"==> Loading checkpoint: {load_dir}")
         checkpoint = load_checkpoint(load_dir=load_dir)
-        model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model_state_dict'], strict=False)
         
     return model, checkpoint
 
@@ -573,8 +573,24 @@ class Tester:
                         loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => MPJPE: {mpjpe_i:.2f}, PA-MPJPE: {pa_mpjpe_i:.2f} MPVPE: {mpvpe_i:.2f}')
                     else:
                         loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => MPJPE: {mpjpe_i:.2f}, PA-MPJPE: {pa_mpjpe_i:.2f}')
-                    
-                if cfg.TEST.vis:
+                
+                '''
+                import cv2
+                from vis_utils import vis_3d_pose, save_obj
+                
+                for j in range(batch_size):
+                    if batch_size * i + j in [29345, 10305, 22227, 10309, 10246, 10311, 10304, 28752, 10294, 10242, 10291, 15207, 10280, 10290, 30588, 10277, 10303, 10292, 10248, 10313]:
+                        inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
+                        img = inv_normalize(inp_img[j]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                        img = np.ascontiguousarray(img, dtype=np.uint8)
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_img.png'), img)
+                        
+                        save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_pred.obj'))
+                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_gt.obj'))
+                        '''
+                
+                #if cfg.TEST.vis:
+                if False:
                     import cv2
                     from vis_utils import vis_3d_pose, save_obj
                     
@@ -596,6 +612,8 @@ class Tester:
             self.mpjpe_x = sum(error_x) / self.dataset_length
             self.mpjpe_y = sum(error_y) / self.dataset_length
             self.mpjpe_z = sum(error_z) / self.dataset_length
+            
+            #with open('best_1_mpjpe_z.txt', 'w') as f: f.write('\n'.join(str(item) for item in error_z))
             
             if self.eval_mpvpe:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f} MPVPE: {self.mpvpe:.2f}')
