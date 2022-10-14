@@ -173,7 +173,7 @@ class SupConLoss(nn.Module):
         mean_log_prob_pos = (mask * log_prob).sum(1) / mask.sum(1)
 
         # loss
-        loss = - (self.temperature / self.base_temperature) * mean_log_prob_pos
+        loss = -1 * mean_log_prob_pos
         loss = loss.view(anchor_count, batch_size).mean()
 
         return loss
@@ -388,7 +388,7 @@ def get_loss():
     loss = {}
     if cfg.MODEL.type == 'contrastive':
         loss['hm'] = JointsMSELoss(use_target_weight=True)
-        loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)
+        loss['joint_cont'] = JointContrastiveLoss(temperature=cfg.TRAIN.temperature)
     elif cfg.MODEL.type == '2d_joint':
         loss['hm'] = JointsMSELoss(use_target_weight=True)
         loss['joint_cont'] = Joint2JointLoss(temperature=cfg.TRAIN.temperature)

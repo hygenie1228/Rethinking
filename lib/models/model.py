@@ -58,9 +58,6 @@ class Model(nn.Module):
         
         hm = F.interpolate(hm, size=[height//4, width//4], mode='bilinear')
         heatmaps.append(hm)
-        
-        hm = F.interpolate(hm, size=[height//8, width//8], mode='bilinear')
-        heatmaps.append(hm)
         return heatmaps
 
 

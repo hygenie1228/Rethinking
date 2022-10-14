@@ -182,6 +182,8 @@ class Projector(nn.Module):
         self.head1 = make_linear_layers([256,64], relu_final=False, use_bn=False)
         self.head2 = make_linear_layers([512,64], relu_final=False, use_bn=False)
         self.head3 = make_linear_layers([1024,64], relu_final=False, use_bn=False)
+        
+        self.final_layer = make_linear_layers([384,384], relu_final=False, use_bn=False)
 
     def forward(self, joint_feat):
         batch_size, joint_num, _ = joint_feat[0].shape
@@ -193,6 +195,8 @@ class Projector(nn.Module):
         x2 = self.head2(x2)
         x3 = self.head3(x3)
         joint_feat = torch.cat((x1,x2,x3), dim=-1)
+
+        joint_feat = self.final_layer(joint_feat)
         return joint_feat
 
     

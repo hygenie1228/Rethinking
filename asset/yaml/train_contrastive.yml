@@ -14,7 +14,7 @@ MODEL:
     use_upsampling_layer: True
     input_img_shape: [256, 192]
     projector_hidden_dim: 2048
-    projector_out_dim: 128
+    projector_out_dim: 384
     #weight_path: '/home/namhj/DataCollection/experiment/exp_10-05_23_28_20/checkpoints/epoch_90.pth.tar'
 
 TRAIN:      
@@ -25,7 +25,7 @@ TRAIN:
     end_epoch: 140
     optimizer: 'adam'
     scheduler: 'step' 
-    lr: 1.0e-3
+    lr: 1.0e-4
     lr_step: [90, 120]
     lr_factor: 0.1
     print_freq: 10
@@ -33,7 +33,7 @@ TRAIN:
     vis: True
 
     hm_loss_weight: 1.0
-    contrast_loss_weight: 0.1
+    contrast_loss_weight: 1.0
     temperature: 0.07
 
 AUG:
