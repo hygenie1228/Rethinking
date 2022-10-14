@@ -460,6 +460,9 @@ class Tester:
             self.mpjpe = 9999
             self.pa_mpjpe = 9999
             self.mpvpe = 9999
+            self.mpjpe_x = 9999
+            self.mpjpe_y = 9999
+            self.mpjpe_z = 9999
         elif cfg.MODEL.type == 'hand':
             self.test = self.test_hand
             
@@ -571,21 +574,19 @@ class Tester:
                     else:
                         loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => MPJPE: {mpjpe_i:.2f}, PA-MPJPE: {pa_mpjpe_i:.2f}')
                 
-                '''
-                import cv2
+                '''import cv2
                 from vis_utils import vis_3d_pose, save_obj
                 
                 for j in range(batch_size):
-                    if batch_size * i + j in [29345, 10305, 22227, 10309, 10246, 10311, 10304, 28752, 10294, 10242, 10291, 15207, 10280, 10290, 30588, 10277, 10303, 10292, 10248, 10313]:
+                    if batch_size * i + j in [25342,15230,12614,26984,25916,32529,25341,3817,8622,8624,8638,5697,3807,20235,32531,12624,19492,32604,5699,3460,19444,8800,19494,25340,8626,32527,25888,29639,25384,5701,26674]:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                         img = inv_normalize(inp_img[j]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                         img = np.ascontiguousarray(img, dtype=np.uint8)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_img.png'), img)
                         
-                        save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_pred.obj'))
-                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_gt.obj'))
-                        '''
-                
+                        save_obj(pred_mesh_cam[j], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_pred.obj'))
+                        save_obj(tar_mesh_cam[j], smpl.face, osp.join(cfg.vis_dir, f'test_{batch_size * i + j}_mesh_cam_gt.obj'))
+                '''       
                 #if cfg.TEST.vis:
                 if False:
                     import cv2
@@ -610,7 +611,9 @@ class Tester:
             self.mpjpe_y = sum(error_y) / self.dataset_length
             self.mpjpe_z = sum(error_z) / self.dataset_length
             
-            #with open('best_1_mpjpe_z.txt', 'w') as f: f.write('\n'.join(str(item) for item in error_z))
+            with open('pose2d_mpjpe_x.txt', 'w') as f: f.write('\n'.join(str(item) for item in error_z))
+            with open('pose2d_mpjpe_y.txt', 'w') as f: f.write('\n'.join(str(item) for item in error_z))
+            with open('pose2d_mpjpe_z.txt', 'w') as f: f.write('\n'.join(str(item) for item in error_z))
             
             if self.eval_mpvpe:
                 logger.info(f'>> {eval_prefix} MPJPE: {self.mpjpe:.2f}, PA-MPJPE: {self.pa_mpjpe:.2f} MPVPE: {self.mpvpe:.2f}')
