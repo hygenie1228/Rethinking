@@ -11,7 +11,7 @@ from models.module import Projector, PAREHead, HMRHead, HeatmapPredictor, Pose2P
 from core.config import cfg
 from core.logger import logger
 from collections import OrderedDict
-from funcs_utils import load_checkpoint, sample_image_feature, rot6d_to_axis_angle, soft_argmax_2d
+from funcs_utils import load_checkpoint, sample_image_feature, rot6d_to_axis_angle, soft_argmax_2d, check_data_parallel
 from human_models import smpl, coco
 
 class Model(nn.Module):
@@ -259,12 +259,15 @@ def transfer_backbone(backbone, weight_path):
     if 'model_state_dict' in checkpoint:
         checkpoint = checkpoint['model_state_dict']
 
+    checkpoint = check_data_parallel(checkpoint)
+
     new_state_dict = OrderedDict()
     for k, v in checkpoint.items():
         if 'backbone' in k:
             name = k.replace('backbone.', '')
             new_state_dict[name] = v
-    
+
+
     if len(new_state_dict) == 0:
         backbone.load_state_dict(checkpoint, strict=False)
     else: 
