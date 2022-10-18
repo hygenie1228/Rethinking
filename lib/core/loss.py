@@ -210,8 +210,8 @@ class Joint2JointLoss(nn.Module):
         self.criterion = SupConLoss(temperature=temperature)
 
     def forward(self, output, target):
-        batch_size, joint_num, n_view, feat_dim = output.shape
-        target = target.clone().long()
+        #batch_size, joint_num, n_view, feat_dim = output.shape
+        '''target = target.clone().long()
 
         labels = torch.arange(joint_num, device='cuda')
         labels = torch.repeat_interleave(labels[None,:], batch_size, dim=0)
@@ -222,9 +222,9 @@ class Joint2JointLoss(nn.Module):
         target_valid = (target != 0)
 
         output = output[target_valid]
-        labels = labels[target_valid]
-        
-        loss = self.criterion(output, labels)
+        labels = labels[target_valid]'''
+            
+        loss = self.criterion(output)
         return loss
 
 

@@ -169,14 +169,14 @@ class Trainer:
 
             batch_size = inp_img_1.shape[0]
             joint_feat = torch.stack([joint_feat[:batch_size],joint_feat[batch_size:]])
-            joint_feat = joint_feat.permute(1,2,0,3).contiguous()
+            joint_feat = joint_feat.permute(1,0,2).contiguous()
             meta_joint_valid = meta_joint_valid_1 * meta_joint_valid_2
 
             # joint_feat: [bs, joint_num, n_views, feat_dim]
             # joint_valid: [bs, joint_num]
             loss1 = self.contrast_loss_weight*self.loss['joint_cont'](joint_feat, meta_joint_valid)
             meta_joint_valid = torch.cat([meta_joint_valid_1, meta_joint_valid_2])
-            loss2 = self.hm_loss_weight * self.loss['hm'](pred_heatmap, meta_hm, meta_joint_valid)
+            loss2 = torch.tensor(0.0).cuda()
             
             loss = loss1 + loss2
             
@@ -196,7 +196,8 @@ class Trainer:
                                                 f'joint_cont loss: {loss1:.4f} hm loss: {loss2:.4f}')
             
             # visualize
-            if cfg.TRAIN.vis and i == 1:
+            #if cfg.TRAIN.vis and i == 1:
+            if False:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 

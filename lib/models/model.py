@@ -68,7 +68,7 @@ class Model(nn.Module):
         batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
         
         img_feats, x = self.backbone(inp_img, True)
-        heatmaps = self.scale_hm(meta_hm)
+        '''heatmaps = self.scale_hm(meta_hm)
 
         joint_feats = []
         joint_feat = img_feats[0][:,None,:,:,:] * heatmaps[0][:,:,None,:,:]
@@ -81,13 +81,14 @@ class Model(nn.Module):
         
         joint_feat = img_feats[2][:,None,:,:,:] * heatmaps[2][:,:,None,:,:]
         joint_feat = joint_feat.sum((3,4))
-        joint_feats.append(joint_feat)
-                
+        joint_feats.append(joint_feat)'''
+        joint_feats = img_feats[-1].mean((2,3))
+                        
         joint_feats = self.projector(joint_feats)
         joint_feats = F.normalize(joint_feats, dim=1)
-        joint_feats = joint_feats.reshape(batch_size, joint_num, -1)
+        joint_feats = joint_feats.reshape(batch_size, -1)
         
-        joint_heatmap = self.head(x)
+        joint_heatmap = None
         return joint_heatmap, joint_feats
 
     def forward_2d_joint(self, inp_img, meta_hm):
@@ -266,7 +267,6 @@ def transfer_backbone(backbone, weight_path):
         if 'backbone' in k:
             name = k.replace('backbone.', '')
             new_state_dict[name] = v
-
 
     if len(new_state_dict) == 0:
         backbone.load_state_dict(checkpoint, strict=False)

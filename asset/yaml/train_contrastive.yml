@@ -11,7 +11,7 @@ MODEL:
     type: 'contrastive'
     # 'resnet50', 'hrnetw32'
     backbone: 'resnet50'
-    use_upsampling_layer: True
+    use_upsampling_layer: False
     input_img_shape: [256, 192]
     projector_hidden_dim: 2048
     projector_out_dim: 256
@@ -19,13 +19,13 @@ MODEL:
 
 TRAIN:      
     transfer_backbone: False
-    batch_size: 64
+    batch_size: 128
     shuffle: True
     begin_epoch: 1
     end_epoch: 140
     optimizer: 'adam'
     scheduler: 'step' 
-    lr: 1.0e-4
+    lr: 0.3
     lr_step: [90, 120]
     lr_factor: 0.1
     print_freq: 10
