@@ -75,7 +75,7 @@ class Model(nn.Module):
         if cfg.MODEL.regressor == 'pose2pose':
             smpl_pose, smpl_shape, cam_trans, pred_joint_img = self.head(img_feat)
         else:
-            smpl_pose, smpl_shape, cam_trans  = self.head(img_feat)
+            smpl_pose, smpl_shape, cam_trans, part_attention  = self.head(img_feat)
             pred_joint_img = None
         
         smpl_pose = rot6d_to_axis_angle(smpl_pose.reshape(-1,6)).reshape(batch_size,-1)
@@ -84,7 +84,7 @@ class Model(nn.Module):
 
         mesh_cam = mesh_cam + cam_trans[:,None,:]
 
-        return mesh_cam, joint_cam, joint_proj, smpl_pose, smpl_shape, pred_joint_img
+        return mesh_cam, joint_cam, joint_proj, smpl_pose, smpl_shape, pred_joint_img, part_attention
 
 
     def forward_hand(self, inp_img):

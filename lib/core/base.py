@@ -240,7 +240,7 @@ class Trainer:
             tar_pose, tar_shape = batch['pose'].cuda(), batch['shape'].cuda()
             meta_joint_valid, meta_has_3D, meta_has_param, meta_smpl_pose_valid = batch['joint_valid'].cuda(), batch['has_3D'].cuda(), batch['has_param'].cuda(), batch['smpl_pose_valid'].cuda()
             
-            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, pred_joint_img = self.model(inp_img)
+            pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, pred_joint_img, _ = self.model(inp_img)
 
             loss1 = self.joint_loss_weight * self.loss['joint_cam'](pred_joint_cam, tar_joint_cam, meta_joint_valid * meta_has_3D)
             loss2 = self.joint_loss_weight * self.loss['smpl_joint_cam'](pred_joint_cam, tar_smpl_joint_cam, meta_has_param[:,:,None])
@@ -444,7 +444,7 @@ class Tester:
                 batch_size = inp_img.shape[0]
                 
                 # feed-forward
-                pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, _ = self.model(inp_img)
+                pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, _, part_attention = self.model(inp_img)
                 # meter to milimeter
                 pred_mesh_cam, pred_joint_cam = pred_mesh_cam * 1000, pred_joint_cam * 1000
 
@@ -477,18 +477,19 @@ class Tester:
                     import cv2
                     from vis_utils import vis_3d_pose, save_obj
                     
-                    if i % self.vis_freq == 0:
+                    #if i % self.vis_freq == 0:
+                    if True:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
                         img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                         img = np.ascontiguousarray(img, dtype=np.uint8)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_img.png'), img)
                         
-                        pred_joint_cam = pred_joint_cam - pred_joint_cam[:, None, smpl.h36m_root_joint_idx, :]
+                        '''pred_joint_cam = pred_joint_cam - pred_joint_cam[:, None, smpl.h36m_root_joint_idx, :]
                         vis_3d_pose(pred_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_pred.png'))
                         vis_3d_pose(tar_joint_cam[0], smpl.h36m_skeleton, 'human36', osp.join(cfg.vis_dir, f'test_{i}_joint_cam_gt.png'))
 
                         save_obj(pred_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_pred.obj'))
-                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))
+                        save_obj(tar_mesh_cam[0], smpl.face, osp.join(cfg.vis_dir, f'test_{i}_mesh_cam_gt.obj'))'''
 
                         # render 
                         '''import copy
@@ -500,7 +501,66 @@ class Tester:
                         
                         pred_rendered_img = render_mesh(img, pred_mesh_cam[0]/1000, smpl.face, cam_param)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_render.png'), pred_rendered_img)'''
-                       
+                        
+                        
+                        part_attention = part_attention.reshape(-1, 8*6)
+                        part_attention = torch.softmax(part_attention, dim=-1)
+                        part_attention = part_attention.reshape(batch_size, -1, 8, 6).cpu().numpy()
+
+                        # L_Knee
+                        hm = part_attention[0][4]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_l_knee.png'), hm)
+
+                        # l_hip
+                        hm = part_attention[0][1]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_l_hip.png'), hm)
+
+                        # R_Shoulder
+                        hm = part_attention[0][17]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_r_shoulder.png'), hm)
+
+                        # R_Elbow
+                        hm = part_attention[0][19]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_r_wrist.png'), hm)
+
+                        # L_Elbow
+                        hm = part_attention[0][18]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_l_elbow.png'), hm)
+
+                        # Neck
+                        hm = part_attention[0][12]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_neck.png'), hm)
+                        
             self.mpjpe = sum(mpjpe) / self.dataset_length
             self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length
             self.mpvpe = sum(mpvpe) / self.dataset_length

@@ -36,7 +36,7 @@ class PAREHead(nn.Module):
         smpl_feats = self.smpl_deconv_layers(features)
         cam_shape_feats = self.smpl_final_layer(smpl_feats)
 
-        point_local_feat = self.keypoint_attention(smpl_feats, part_attention)
+        point_local_feat = self.keypoint_attention(smpl_feats, part_attention)        
         cam_shape_feats = self.keypoint_attention(cam_shape_feats, part_attention)
 
         pose_feats = point_local_feat
@@ -49,7 +49,7 @@ class PAREHead(nn.Module):
         pred_shape = self.shape_mlp(shape_feats)
 
         pred_pose = pred_pose.squeeze(-1).transpose(2, 1)
-        return pred_pose, pred_shape, pred_cam
+        return pred_pose, pred_shape, pred_cam, part_attention
 
 class HMRHead(nn.Module):
     def __init__(self, in_dim, hidden_dim=1024, smpl_mean_params='', n_iter=3):
