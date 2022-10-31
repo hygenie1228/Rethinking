@@ -20,6 +20,26 @@ from human_models import smpl, coco
 from vis_utils import vis_keypoints, vis_keypoints_with_skeleton, vis_3d_pose, vis_heatmaps, save_obj
 
 
+def _xywh2cs(x, y, w, h):
+    aspect_ratio = 0.75
+    pixel_std = 200
+
+    center = np.zeros((2), dtype=np.float32)
+    center[0] = x + w * 0.5
+    center[1] = y + h * 0.5
+
+    if w > aspect_ratio * h:
+        h = w * 1.0 / aspect_ratio
+    elif w < aspect_ratio * h:
+        w = h * aspect_ratio
+    scale = np.array(
+        [w * 1.0 / pixel_std, h * 1.0 / pixel_std],
+        dtype=np.float32)
+    if center[0] != -1:
+        scale = scale * 1.25
+
+    return center, scale
+
 class BaseDataset(Dataset):
     def __init__(self):
         self.transform = None
@@ -146,10 +166,17 @@ class BaseDataset(Dataset):
                 'hm_valid': joint_valid
             }
         else:
+            center, scale = _xywh2cs(data['orig_bbox'][0], data['orig_bbox'][1], data['orig_bbox'][2], data['orig_bbox'][3])
+
             batch = {
                 'img': img,
                 'hm': hm,
-                'hm_valid': joint_valid
+                'hm_valid': joint_valid,
+                'bbox': bbox,
+                'center': center,
+                'scale': scale,
+                'img_id': data['img_id'],
+                'img_path': img_path
             }
         
         return batch

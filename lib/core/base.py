@@ -452,6 +452,8 @@ class Tester:
         self.print_freq = cfg.TRAIN.print_freq
         self.vis_freq = cfg.TEST.vis_freq
         
+        self.pred_2d_save = []
+        
         if cfg.MODEL.type == '2d_joint':
             self.test = self.test_2d_joint
             self.pck = 9999
@@ -495,39 +497,63 @@ class Tester:
                 output_flipped[:, :, :, 1:] = output_flipped.clone()[:, :, :, 0:-1]
                 output = (output + output_flipped) * 0.5
 
-                acc, avg_acc, cnt, pred = self.eval_2d_accuracy(output, tar_hm)
-                pck.append(avg_acc*cnt)
-                pck_cnt.append(cnt)
-                pck_i = avg_acc
+                pred_heatmap = output.cpu().numpy()
+                pred, pred_valid = get_max_preds(pred_heatmap)
+            
+                bbox = batch['bbox'].cpu().numpy()
 
-                if i % self.print_freq == 0:
-                    loader.set_description(f'{eval_prefix}({i}/{len(self.val_loader)}) => PCK: {pck_i:.3f}')
-                
-                if cfg.TEST.vis and (i % self.vis_freq == 0):
+                pred[:,:,0] = pred[:,:,0] / 192 * bbox[:,None,2] * 4
+                pred[:,:,1] = pred[:,:,1] / 256 * bbox[:,None,3] * 4
+                pred[:,:,0] = pred[:,:,0] + bbox[:,None,0]
+                pred[:,:,1] = pred[:,:,1] + bbox[:,None,1]
+
+                keypoints = np.concatenate((pred,pred_valid), axis=-1)
+                keypoints = keypoints[:,:17]
+
+                for j in range(batch_size):
+                    save_result = {
+                        'image_id':batch['img_id'][j].item(),
+                        'category_id':1,
+                        'keypoints':keypoints[j].reshape(-1).astype(float).tolist(),
+                        'score': float(pred_valid[j].mean()),
+                        'center':batch['center'][j].cpu().numpy().astype(float).tolist(),
+                        'scale':batch['scale'][j].cpu().numpy().astype(float).tolist()
+                    }
+                    self.pred_2d_save.append(save_result)
+
+                if i % 100 == 0:
                     import cv2
                     from vis_utils import vis_keypoints_with_skeleton
-                    pred_heatmap = output.cpu().numpy()
-                    pred_joint_img, pred_joint_valid = get_max_preds(pred_heatmap)
-                    pred_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                    pred_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-
-                    tar_heatmap = tar_hm.cpu().numpy()
-                    tar_joint_img, tar_joint_valid = get_max_preds(tar_heatmap)
-                    tar_joint_img[:,:,0] *= cfg.MODEL.input_img_shape[1] / cfg.MODEL.img_feat_shape[1]
-                    tar_joint_img[:,:,1] *= cfg.MODEL.input_img_shape[0] / cfg.MODEL.img_feat_shape[0]
-
-                    inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                    img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
-                    img = np.ascontiguousarray(img, dtype=np.uint8)
+                    img = cv2.imread(batch['img_path'][0])
+                    pred_joint_img = pred[0]
+                    pred_joint_valid = pred_valid[0]
                     
-                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img[0],pred_joint_valid[0,:]],1), coco.skeleton)
-                    cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_joint_img_pred.png'), tmp_img)
+                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([pred_joint_img,pred_joint_valid],1), coco.skeleton)
+                    cv2.imwrite('debug.png', tmp_img)
+                continue
 
-                    tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],tar_joint_valid[0,:]],1), coco.skeleton)
-                    cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_joint_img_gt.png'), tmp_img)
+            res_file = 'result.json'
+            
+            with open(res_file, 'w') as f:
+                json.dump(self.pred_2d_save, f, sort_keys=True, indent=4)
+            
+            from pycocotools.coco import COCO
+            from pycocotools.cocoeval import COCOeval
+            
+            self.coco = COCO('data/MSCOCO/annotations/coco_wholebody_val_v1.0.json')
+            coco_dt = self.coco.loadRes(res_file)
+            coco_eval = COCOeval(self.coco, coco_dt, 'keypoints')
+            coco_eval.params.useSegm = None
+            coco_eval.evaluate()
+            coco_eval.accumulate()
+            coco_eval.summarize()
 
-            self.pck = sum(pck) / sum(pck_cnt)
-            logger.info(f'>> {eval_prefix} PCK: {self.pck:.3f}')
+            stats_names = ['AP', 'Ap .5', 'AP .75', 'AP (M)', 'AP (L)', 'AR', 'AR .5', 'AR .75', 'AR (M)', 'AR (L)']
+
+            info_str = []
+            for ind, name in enumerate(stats_names):
+                info_str.append((name, coco_eval.stats[ind]))
+            assert 0 
 
 
     def test_body(self, epoch, current_model=None):

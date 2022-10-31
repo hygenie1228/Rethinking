@@ -100,6 +100,7 @@ class MSCOCO(BaseDataset):
                 'img_path': img_path,
                 'img_shape': (img['height'], img['width']),
                 'bbox': bbox,
+                'orig_bbox': ann['bbox'],
                 'joint_img': joint_img, 
                 'joint_valid': joint_valid,
                 'smpl_param': smpl_param,

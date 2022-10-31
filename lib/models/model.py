@@ -87,33 +87,12 @@ class Model(nn.Module):
         joint_heatmap = self.head(x)
         return joint_heatmap, joint_feats
 
-    def forward_2d_joint(self, inp_img, meta_hm):
-        batch_size, joint_num = meta_hm.shape[0], meta_hm.shape[1]
-
+    def forward_2d_joint(self, inp_img, meta_hm=None):
+        batch_size = inp_img.shape[0]
+        
         img_feats, x = self.backbone(inp_img, True)
-        heatmaps = self.scale_hm(meta_hm)
-
-        joint_feats = []
-        joint_feat = img_feats[0][:,None,:,:,:] * heatmaps[0][:,:,None,:,:]
-        joint_feat = joint_feat.sum((3,4))
-        joint_feats.append(joint_feat)
-        
-        joint_feat = img_feats[1][:,None,:,:,:] * heatmaps[1][:,:,None,:,:]
-        joint_feat = joint_feat.sum((3,4))
-        joint_feats.append(joint_feat)
-        
-        joint_feat = img_feats[2][:,None,:,:,:] * heatmaps[2][:,:,None,:,:]
-        joint_feat = joint_feat.sum((3,4))
-        joint_feats.append(joint_feat)
-
-        joint_feats = torch.cat(joint_feats, dim=-1)
-        joint_feats = joint_feats.reshape(batch_size*joint_num, -1)
-        joint_feats = self.projector(joint_feats)
-        joint_feats = F.normalize(joint_feats, dim=1)
-        joint_feats = joint_feats.reshape(batch_size, joint_num, -1)
-
         joint_heatmap = self.head(x)
-        return joint_heatmap, joint_feats
+        return joint_heatmap
 
 
     def forward_body(self, inp_img):
