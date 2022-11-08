@@ -1,7 +1,7 @@
 DATASET:
     train_list: []    
     # PW3D  
-    test_list: ['MSCOCO']               
+    test_list: ['Human36M']               
     workers: 4
 
 MODEL:
@@ -10,7 +10,8 @@ MODEL:
     backbone: 'resnet50'
     use_upsampling_layer: False
     normalize_imagenet: True
-    weight_path: '/home/namhj/PoseContrast/experiment/experiment/exp_02-26_14_29/checkpoints/final.pth.tar'
+    #weight_path: '/home/namhj/PoseContrast/experiment/experiment/exp_03-03_14_32/checkpoints/final.pth.tar'
+    weight_path: '/home/namhj/PoseContrast/experiment/experiment/exp_10-06_17_54_29/checkpoints/final.pth.tar'
     input_img_shape: [256, 192]
 
 TEST:

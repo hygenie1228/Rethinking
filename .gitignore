@@ -23,6 +23,7 @@ data/*/data
 data/*/annotation
 data/*/annotations
 debug/
+debug2/
 
 
 # Distribution / packaging
