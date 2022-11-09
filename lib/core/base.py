@@ -442,6 +442,7 @@ class Tester:
             for i, batch in enumerate(loader):
                 inp_img = batch['img'].cuda()
                 batch_size = inp_img.shape[0]
+                                
                 
                 # feed-forward
                 pred_mesh_cam, pred_joint_cam, pred_joint_proj, pred_smpl_pose, pred_smpl_shape, _, part_attention = self.model(inp_img)
@@ -480,7 +481,7 @@ class Tester:
                     #if i % self.vis_freq == 0:
                     if True:
                         inv_normalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], std=[1/0.229, 1/0.224, 1/0.225])
-                        img = inv_normalize(inp_img[0]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
+                        img = inv_normalize(inp_img[1]).cpu().numpy().transpose(1,2,0)[:,:,::-1]
                         img = np.ascontiguousarray(img, dtype=np.uint8)
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_img.png'), img)
                         
@@ -507,7 +508,7 @@ class Tester:
                         part_attention = torch.softmax(part_attention, dim=-1)
                         part_attention = part_attention.reshape(batch_size, -1, 8, 6).cpu().numpy()
 
-                        # L_Knee
+                        '''# L_Knee
                         hm = part_attention[0][4]
                         hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
                         hm = (hm * 255 * 5)
@@ -541,10 +542,10 @@ class Tester:
                         hm = np.clip(hm,0,255).astype(np.uint8)
                         hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
                         hm = img*0.4 + hm * 0.7
-                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_r_wrist.png'), hm)
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_r_wrist.png'), hm)'''
 
                         # L_Elbow
-                        hm = part_attention[0][18]
+                        hm = part_attention[1][18]
                         hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
                         hm = (hm * 255 * 5)
                         hm = np.clip(hm,0,255).astype(np.uint8)
@@ -553,13 +554,21 @@ class Tester:
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_l_elbow.png'), hm)
 
                         # Neck
-                        hm = part_attention[0][12]
+                        hm = part_attention[1][12]
                         hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
                         hm = (hm * 255 * 5)
                         hm = np.clip(hm,0,255).astype(np.uint8)
                         hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
                         hm = img*0.4 + hm * 0.7
                         cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_neck.png'), hm)
+                        
+                        hm = part_attention[1][15]
+                        hm = cv2.resize(hm, (192, 256), interpolation=cv2.INTER_LINEAR)
+                        hm = (hm * 255 * 5)
+                        hm = np.clip(hm,0,255).astype(np.uint8)
+                        hm = cv2.applyColorMap(hm, cv2.COLORMAP_JET)
+                        hm = img*0.4 + hm * 0.7
+                        cv2.imwrite(osp.join(cfg.vis_dir, f'test_{i}_head.png'), hm)
                         
             self.mpjpe = sum(mpjpe) / self.dataset_length
             self.pa_mpjpe = sum(pa_mpjpe) / self.dataset_length

@@ -138,6 +138,9 @@ class BaseDataset(Dataset):
             if self.has_smpl_param:
                 smpl_param, cam_param = data['smpl_param'], data['cam_param']
         
+        img = load_img('/home/namhj/PoseContrast/img.png')
+        bbox = [0,0,192,257]
+        
         img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
         joint_img = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
         if do_flip: joint_valid = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])
@@ -217,7 +220,8 @@ class BaseDataset(Dataset):
             else:
                 mesh_cam = np.zeros((smpl.vertex_num, 3))
                 joint_cam = np.zeros((smpl.joint_num, 3))               
-               
+            
+            
             batch = {
                 'img': img,
                 'bbox': bbox,
