@@ -183,7 +183,7 @@ class Trainer:
                                                 f'hm loss: {loss1:.4f}')
             
             # visualize 
-            if cfg.TRAIN.vis and i % (len(batch_generator)//6) == 0:
+            if cfg.TRAIN.vis and i % (len(batch_generator)//4) == 0:
                 import cv2
                 from vis_utils import vis_keypoints_with_skeleton, vis_heatmaps
                 
@@ -214,7 +214,7 @@ class Trainer:
 
                 tmp_img = vis_keypoints_with_skeleton(img, np.concatenate([tar_joint_img[0],meta_hm_valid[0,:, None]],1), coco.skeleton)
                 cv2.imwrite(osp.join(cfg.vis_dir, f'train_{i}_joint_img_gt.png'), tmp_img)
-    
+
 
         self.loss_history['total_loss'].append(running_loss / len(batch_generator)) 
         self.loss_history['hm_loss'].append(running_hm_loss / len(batch_generator))     
@@ -343,10 +343,13 @@ class Tester:
             else:
                 self.eval_mpvpe = False
         
-        if self.val_dataset.joint_set['name'] == 'MuPoTS':
-            self.J_regressor = torch.from_numpy(self.val_dataset.mpii3d_smpl_regressor).float().cuda()
-        else:
-            self.J_regressor = torch.from_numpy(smpl.h36m_joint_regressor).float().cuda()
+        try:
+            if self.val_dataset.joint_set['name'] == 'MuPoTS':
+                self.J_regressor = torch.from_numpy(self.val_dataset.mpii3d_smpl_regressor).float().cuda()
+            else:
+                self.J_regressor = torch.from_numpy(smpl.h36m_joint_regressor).float().cuda()
+        except:
+            return
 
         self.print_freq = cfg.TRAIN.print_freq
         self.vis_freq = cfg.TEST.vis_freq

@@ -52,9 +52,36 @@ class BaseDataset(Dataset):
         img_path = data['img_path']
         img = load_img(img_path)
 
-        bbox = data['bbox']
-        joint_img, joint_valid = data['joint_img'], data['joint_valid']
-        
+        if self.joint_set['name'] == 'AGORA':
+            bbox = data['bbox']
+            #img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
+            
+            with open(data['joints_2d_path']) as f: 
+                joint_img = np.array(json.load(f)).reshape(-1,2)
+                joint_img[:,:2] = np.dot(data['img2bb_trans_from_orig'], np.concatenate((joint_img, np.ones_like(joint_img[:,:1])),1).transpose(1,0)).transpose(1,0) # transform from original image to crop_and_resize image
+                joint_valid = np.ones((len(joint_img),))
+
+                joint_img = transform_joint_to_other_db(joint_img, self.joint_set['orig_joints_name'], self.joint_set['joints_name'])
+                joint_valid = transform_joint_to_other_db(joint_valid, self.joint_set['orig_joints_name'], self.joint_set['joints_name'])
+
+            with open(data['joints_3d_path']) as f:
+                joint_cam = np.array(json.load(f)).reshape(-1,3)
+                joint_cam = transform_joint_to_other_db(joint_cam, self.joint_set['orig_joints_name'], self.joint_set['joints_name'])
+            with open(data['smpl_param_path'], 'rb') as f: param = pickle.load(f, encoding='latin1')
+            with open(data['verts_path']) as f:
+                orig_mesh_cam = json.load(f)
+            
+            root_pose = np.array(param['root_pose'], dtype=np.float32).reshape(-1)
+            body_pose = np.array(param['body_pose'], dtype=np.float32).reshape(-1)
+            smpl_pose = np.concatenate((root_pose, body_pose))
+            shape = np.array(param['betas'], dtype=np.float32).reshape(-1)[:10]
+            trans = np.array(param['translation'], dtype=np.float32).reshape(-1)
+            smpl_param = {'pose': smpl_pose, 'shape': shape, 'trans': trans}
+            cam_param = {'focal': cfg.CAMERA.focal, 'princpt': cfg.CAMERA.princpt}
+        else:
+            bbox, joint_img, joint_valid = data['bbox'], data['joint_img'], data['joint_valid']
+
+     
         img, img2bb_trans, bb2img_trans, rot, do_flip = img_processing(img, bbox, self.data_split)
         joint_img = coord2D_processing(joint_img, img2bb_trans, do_flip, cfg.MODEL.input_img_shape, self.joint_set['flip_pairs'])
         if do_flip: joint_valid = flip_joint(joint_valid, None, self.joint_set['flip_pairs'])

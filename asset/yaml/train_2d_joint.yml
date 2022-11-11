@@ -1,6 +1,7 @@
 DATASET:
-    train_list: ['MPII']    
-    test_list: ['MSCOCO']               
+    train_list: ['AGORA', 'MSCOCO']    
+    test_list: []   
+    make_same_len: True                
     workers: 16
 
 MODEL:
